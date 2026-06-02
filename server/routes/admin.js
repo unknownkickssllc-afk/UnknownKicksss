@@ -1,10 +1,10 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const data = require("../data");
+const { authenticateAdmin } = require("../lib/adminAuth");
 const { requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
@@ -26,17 +26,11 @@ const upload = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
 
 router.post("/login", async (req, res) => {
   try {
-    const email = String(req.body.email || "")
-      .trim()
-      .toLowerCase();
-    const password = String(req.body.password || "");
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+    const result = await authenticateAdmin(data, req.body.email, req.body.password);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
-    const user = await data.getAdminByEmail(email);
-    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
+    const { user } = result;
     req.session.adminId = user.id;
     req.session.adminEmail = user.email;
     req.session.save((err) => {
