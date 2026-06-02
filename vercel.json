@@ -11,7 +11,8 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/admin/", "destination": "/admin/index.html" }
+    { "source": "/admin/", "destination": "/admin/index.html" },
+    { "source": "/", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.js": {

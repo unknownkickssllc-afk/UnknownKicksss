@@ -33,17 +33,14 @@ router.post("/login", async (req, res) => {
     const { user } = result;
     req.session.adminId = user.id;
     req.session.adminEmail = user.email;
-    req.session.save((err) => {
-      if (err) return res.status(500).json({ error: "Could not start session" });
-      res.json({ success: true, email: user.email });
-    });
+    res.json({ success: true, email: user.email });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 router.post("/logout", (req, res) => {
-  req.session.destroy();
+  req.session = null;
   res.json({ success: true });
 });
 

@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const session = require("express-session");
+const cookieSession = require("cookie-session");
 const path = require("path");
 const Stripe = require("stripe");
 const { fulfillOrder } = require("./services/orderProcessor");
@@ -81,16 +81,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "unknown-kicks-dev-secret-change-me",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
+  cookieSession({
+    name: "uk_session",
+    keys: [process.env.SESSION_SECRET || "unknown-kicks-dev-secret-change-me"],
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   })
 );
 
@@ -108,8 +105,10 @@ app.use(
   express.static(path.join(publicRoot, "admin"), { index: "index.html" })
 );
 
-// Storefront — Express serves public/ locally and for Vercel routes that hit the app (e.g. /)
-app.use(express.static(publicRoot));
+// Storefront — locally via Express; on Vercel, public/ is served from the CDN
+if (!onVercel) {
+  app.use(express.static(publicRoot));
+}
 
 app.use("/api", storeRoutes);
 app.use("/api/checkout", checkoutRoutes);
