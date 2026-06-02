@@ -34,7 +34,7 @@ async function seed() {
   await data.clearCatalog();
 
   const email = process.env.ADMIN_EMAIL || "admin@hillwebworks.com";
-  const password = process.env.ADMIN_PASSWORD || "HillWebworks2026!";
+  const password = process.env.ADMIN_PASSWORD || "UnknownKicksAdmin2026!";
   const hash = bcrypt.hashSync(password, 10);
   await data.upsertAdmin(email, hash);
 

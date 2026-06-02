@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 
 const HILLWEBWORKS_DOMAIN = "@hillwebworks.com";
-const DEFAULT_ADMIN_PASSWORD = "HillWebworks2026!";
+const DEFAULT_ADMIN_PASSWORD = "UnknownKicksAdmin2026!";
 
 function normalizeAdminEmail(email) {
   return String(email || "").trim().toLowerCase();
