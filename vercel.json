@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
+  "cleanUrls": true,
   "redirects": [
     {
       "source": "/admin",
@@ -10,8 +11,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/admin/", "destination": "/admin/index.html" },
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/admin/", "destination": "/admin/index.html" }
   ],
   "functions": {
     "api/index.js": {

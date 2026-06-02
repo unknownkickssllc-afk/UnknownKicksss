@@ -108,10 +108,8 @@ app.use(
   express.static(path.join(publicRoot, "admin"), { index: "index.html" })
 );
 
-// Storefront — locally via Express; on Vercel, public/ is served from the CDN
-if (!onVercel) {
-  app.use(express.static(publicRoot));
-}
+// Storefront — Express serves public/ locally and for Vercel routes that hit the app (e.g. /)
+app.use(express.static(publicRoot));
 
 app.use("/api", storeRoutes);
 app.use("/api/checkout", checkoutRoutes);
