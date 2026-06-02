@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_email TEXT NOT NULL,
   customer_phone TEXT,
   shipping_json JSONB NOT NULL,
+  billing_json JSONB,
   referral_code_id BIGINT,
   barber_id BIGINT REFERENCES barbers(id),
   referral_code_text TEXT,
@@ -133,3 +134,5 @@ CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_referral_code ON referral_codes(code);
 CREATE INDEX IF NOT EXISTS idx_commissions_barber ON commissions(barber_id);
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_json JSONB;

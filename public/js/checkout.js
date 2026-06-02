@@ -141,6 +141,7 @@
       },
       shipping,
       billing: getBillingAddress(fd, shipping),
+      billingSame: fd.get("billingSame") === "on",
       referralCode: fd.get("referralCode")?.trim() || undefined,
       paymentIntentId,
     };

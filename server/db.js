@@ -92,6 +92,7 @@ function initSchema() {
       customer_email TEXT NOT NULL,
       customer_phone TEXT,
       shipping_json TEXT NOT NULL,
+      billing_json TEXT,
       referral_code_id INTEGER REFERENCES referral_codes(id),
       barber_id INTEGER REFERENCES barbers(id),
       referral_code_text TEXT,
@@ -142,5 +143,11 @@ function initSchema() {
 }
 
 initSchema();
+
+try {
+  db.prepare("SELECT billing_json FROM orders LIMIT 1").get();
+} catch {
+  db.exec("ALTER TABLE orders ADD COLUMN billing_json TEXT");
+}
 
 module.exports = { db, dbPath };

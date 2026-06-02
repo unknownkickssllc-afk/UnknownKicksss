@@ -116,7 +116,7 @@ async function saveCustomer({ email, name, phone }) {
     .lastInsertRowid;
 }
 
-async function createPendingOrder({ customer, shipping, items, referralCode, stripeSessionId }) {
+async function createPendingOrder({ customer, shipping, billing, items, referralCode, stripeSessionId }) {
   const { items: validated, subtotal, total } = await validateCartItems(items, getVariant);
   let referral = null;
   if (referralCode) {
@@ -130,9 +130,9 @@ async function createPendingOrder({ customer, shipping, items, referralCode, str
     const orderResult = db
       .prepare(
         `INSERT INTO orders (order_number, status, payment_status, stripe_session_id,
-         customer_id, customer_name, customer_email, customer_phone, shipping_json,
+         customer_id, customer_name, customer_email, customer_phone, shipping_json, billing_json,
          referral_code_id, barber_id, referral_code_text, subtotal, total)
-         VALUES (?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         orderNumber,
@@ -142,6 +142,7 @@ async function createPendingOrder({ customer, shipping, items, referralCode, str
         customer.email,
         customer.phone || null,
         JSON.stringify(shipping),
+        billing ? JSON.stringify(billing) : null,
         referral?.id || null,
         referral?.barberId || null,
         referral?.code || null,
@@ -220,6 +221,7 @@ async function getOrderByNumber(orderNumber) {
   return {
     ...order,
     shipping: JSON.parse(order.shipping_json),
+    billing: order.billing_json ? JSON.parse(order.billing_json) : null,
     items: enrichItemsWithProductImages(items),
   };
 }
@@ -343,6 +345,7 @@ async function getAllOrdersAdmin() {
   return orders.map((o) => ({
     ...o,
     shipping: JSON.parse(o.shipping_json),
+    billing: o.billing_json ? JSON.parse(o.billing_json) : null,
     items: enrichItemsWithProductImages(
       db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(o.id)
     ),
@@ -357,6 +360,7 @@ async function getOrderAdmin(id) {
   return {
     ...o,
     shipping: JSON.parse(o.shipping_json),
+    billing: o.billing_json ? JSON.parse(o.billing_json) : null,
     items: enrichItemsWithProductImages(db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(id)),
   };
 }

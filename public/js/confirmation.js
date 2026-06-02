@@ -19,6 +19,15 @@
     return `$${Number(amount).toFixed(2)}`;
   }
 
+  function formatAddress(addr) {
+    if (!addr) return "";
+    return `
+            ${esc(addr.line1)}<br />
+            ${addr.line2 ? `${esc(addr.line2)}<br />` : ""}
+            ${esc(addr.city)}, ${esc(addr.state)} ${esc(addr.zip)}<br />
+            ${esc(addr.country || "US")}`;
+  }
+
   function paymentLabel(status) {
     if (status === "paid") return "Paid";
     if (status === "pending") return "Pending";
@@ -64,6 +73,7 @@
       numEl.textContent = order.order_number;
 
       const ship = order.shipping || {};
+      const bill = order.billing || null;
       const items = await enrichItemImages(order.items || []);
       const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
       const paid = order.payment_status === "paid";
@@ -89,13 +99,16 @@
 
         <section class="confirm-card">
           <h2 class="confirm-card__title">Shipping address</h2>
-          <address class="confirm-address">
-            ${esc(ship.line1)}<br />
-            ${ship.line2 ? `${esc(ship.line2)}<br />` : ""}
-            ${esc(ship.city)}, ${esc(ship.state)} ${esc(ship.zip)}<br />
-            ${esc(ship.country || "US")}
-          </address>
+          <address class="confirm-address">${formatAddress(ship)}</address>
         </section>
+        ${
+          bill
+            ? `<section class="confirm-card">
+          <h2 class="confirm-card__title">Billing address</h2>
+          <address class="confirm-address">${formatAddress(bill)}</address>
+        </section>`
+            : ""
+        }
         ${
           order.referral_code_text
             ? `<section class="confirm-card">

@@ -828,6 +828,7 @@
       if (!btn) return;
       const o = orders.find((x) => x.id == btn.dataset.order);
       const ship = o.shipping;
+      const bill = o.billing;
 
       openModal(
         `Order ${esc(o.order_number)}`,
@@ -844,8 +845,16 @@
           </div>
           <div class="detail-block">
             <dt>Ship to</dt>
-            <dd>${esc(ship.line1)}<br>${esc(ship.city)}, ${esc(ship.state)} ${esc(ship.zip)}<br>${esc(ship.country)}</dd>
+            <dd>${esc(ship.line1)}${ship.line2 ? `<br>${esc(ship.line2)}` : ""}<br>${esc(ship.city)}, ${esc(ship.state)} ${esc(ship.zip)}<br>${esc(ship.country || "US")}</dd>
           </div>
+          ${
+            bill
+              ? `<div class="detail-block">
+            <dt>Bill to</dt>
+            <dd>${esc(bill.line1)}${bill.line2 ? `<br>${esc(bill.line2)}` : ""}<br>${esc(bill.city)}, ${esc(bill.state)} ${esc(bill.zip)}<br>${esc(bill.country || "US")}</dd>
+          </div>`
+              : ""
+          }
           <div class="detail-block">
             <dt>Referral</dt>
             <dd>${o.referral_code_text ? esc(o.referral_code_text) : "None"}${o.barber_name ? `<br>Barber: ${esc(o.barber_name)}` : ""}</dd>

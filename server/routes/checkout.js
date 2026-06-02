@@ -1,6 +1,7 @@
 const express = require("express");
 const Stripe = require("stripe");
 const data = require("../data");
+const { resolveBillingForStorage } = require("../lib/addresses");
 const { createPendingOrder, fulfillOrder } = require("../services/orderProcessor");
 
 const router = express.Router();
@@ -25,6 +26,18 @@ function validateCheckoutPayload({ customer, shipping }) {
     return "Complete shipping address required";
   }
   return null;
+}
+
+function buildOrderInput(body) {
+  const { items, customer, shipping, billing, billingSame, referralCode, paymentIntentId } = body;
+  return {
+    items,
+    customer,
+    shipping,
+    billing: resolveBillingForStorage({ shipping, billing, billingSame }),
+    referralCode,
+    paymentIntentId,
+  };
 }
 
 router.get("/config", (_req, res) => {
@@ -74,7 +87,7 @@ router.post("/prepare-payment", async (req, res) => {
 /** Create order and attach it to the PaymentIntent before confirming payment. */
 router.post("/finalize-order", async (req, res) => {
   try {
-    const { items, customer, shipping, referralCode, paymentIntentId } = req.body;
+    const { items, customer, shipping, billing, billingSame, referralCode, paymentIntentId } = buildOrderInput(req.body);
     const validationError = validateCheckoutPayload({ customer, shipping });
     if (validationError) return res.status(400).json({ error: validationError });
     if (!paymentIntentId) {
@@ -88,6 +101,7 @@ router.post("/finalize-order", async (req, res) => {
       items,
       customer,
       shipping,
+      billing,
       referralCode,
       stripeSessionId: paymentIntentId,
     });
@@ -128,7 +142,7 @@ router.post("/finalize-order", async (req, res) => {
 
 router.post("/create-payment-intent", async (req, res) => {
   try {
-    const { items, customer, shipping, referralCode } = req.body;
+    const { items, customer, shipping, billing, referralCode } = buildOrderInput(req.body);
     const validationError = validateCheckoutPayload({ customer, shipping });
     if (validationError) return res.status(400).json({ error: validationError });
 
@@ -136,6 +150,7 @@ router.post("/create-payment-intent", async (req, res) => {
       items,
       customer,
       shipping,
+      billing,
       referralCode,
       stripeSessionId: null,
     });
@@ -183,7 +198,7 @@ router.post("/create-payment-intent", async (req, res) => {
 
 router.post("/create-session", async (req, res) => {
   try {
-    const { items, customer, shipping, referralCode } = req.body;
+    const { items, customer, shipping, billing, referralCode } = buildOrderInput(req.body);
     const validationError = validateCheckoutPayload({ customer, shipping });
     if (validationError) return res.status(400).json({ error: validationError });
 
@@ -191,6 +206,7 @@ router.post("/create-session", async (req, res) => {
       items,
       customer,
       shipping,
+      billing,
       referralCode,
       stripeSessionId: null,
     });
@@ -254,8 +270,8 @@ router.post("/complete-dev", async (req, res) => {
   }
 
   try {
-    const { items, customer, shipping, referralCode } = req.body;
-    const order = await createPendingOrder({ items, customer, shipping, referralCode });
+    const { items, customer, shipping, billing, referralCode } = buildOrderInput(req.body);
+    const order = await createPendingOrder({ items, customer, shipping, billing, referralCode });
     await fulfillOrder(order.id);
     const full = await data.getOrderByNumber(order.order_number);
     res.json({ success: true, order: full });

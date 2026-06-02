@@ -7,6 +7,20 @@ function row(r) {
   return o;
 }
 
+function parseOrderAddresses(order) {
+  const shippingRaw = order.shipping_json || {};
+  const shipping = { ...shippingRaw };
+  const billing = order.billing_json || shipping._billing || null;
+  if (shipping._billing) delete shipping._billing;
+  return { shipping, billing };
+}
+
+function shippingPayloadForInsert(shipping, billing, embedBillingOnly = false) {
+  if (!billing) return shipping;
+  if (embedBillingOnly) return { ...shipping, _billing: billing };
+  return shipping;
+}
+
 async function mapProduct(sb, product) {
   const [{ data: images }, { data: variants }, category] = await Promise.all([
     sb.from("product_images").select("url, sort_order, is_hover").eq("product_id", product.id).order("sort_order"),
@@ -133,7 +147,7 @@ async function saveCustomer({ email, name, phone }) {
   return data.id;
 }
 
-async function createPendingOrder({ customer, shipping, items, referralCode, stripeSessionId }) {
+async function createPendingOrder({ customer, shipping, billing, items, referralCode, stripeSessionId }) {
   const { validateCartItems } = require("../services/cartValidation");
   const { items: validated, subtotal, total } = await validateCartItems(items, getVariant);
 
@@ -147,26 +161,41 @@ async function createPendingOrder({ customer, shipping, items, referralCode, str
   const customerId = await saveCustomer(customer);
   const sb = supabase();
 
-  const { data: order, error: orderErr } = await sb
+  const baseRow = {
+    order_number: orderNumber,
+    status: "pending",
+    payment_status: "pending",
+    stripe_session_id: stripeSessionId || null,
+    customer_id: customerId,
+    customer_name: customer.name,
+    customer_email: customer.email,
+    customer_phone: customer.phone || null,
+    shipping_json: shipping,
+    referral_code_id: referral?.id || null,
+    barber_id: referral?.barberId || null,
+    referral_code_text: referral?.code || null,
+    subtotal,
+    total,
+  };
+
+  let order;
+  let orderErr;
+  ({ data: order, error: orderErr } = await sb
     .from("orders")
-    .insert({
-      order_number: orderNumber,
-      status: "pending",
-      payment_status: "pending",
-      stripe_session_id: stripeSessionId || null,
-      customer_id: customerId,
-      customer_name: customer.name,
-      customer_email: customer.email,
-      customer_phone: customer.phone || null,
-      shipping_json: shipping,
-      referral_code_id: referral?.id || null,
-      barber_id: referral?.barberId || null,
-      referral_code_text: referral?.code || null,
-      subtotal,
-      total,
-    })
+    .insert({ ...baseRow, billing_json: billing || null })
     .select()
-    .single();
+    .single());
+
+  if (orderErr && /billing_json/.test(orderErr.message || "")) {
+    ({ data: order, error: orderErr } = await sb
+      .from("orders")
+      .insert({
+        ...baseRow,
+        shipping_json: shippingPayloadForInsert(shipping, billing, true),
+      })
+      .select()
+      .single());
+  }
   if (orderErr) throw orderErr;
 
   const orderItems = validated.map((i) => ({
@@ -251,11 +280,13 @@ async function getOrderByNumber(orderNumber) {
     .single();
   if (error || !order) return null;
   const { data: items } = await sb.from("order_items").select("*").eq("order_id", order.id);
+  const { shipping, billing } = parseOrderAddresses(order);
 
   return {
     ...order,
     barber_name: order.barbers?.name,
-    shipping: order.shipping_json,
+    shipping,
+    billing,
     items: await enrichItemsWithProductImages(items || []),
   };
 }
@@ -394,10 +425,12 @@ async function getAllOrdersAdmin() {
   const out = [];
   for (const o of orders || []) {
     const { data: items } = await supabase().from("order_items").select("*").eq("order_id", o.id);
+    const { shipping, billing } = parseOrderAddresses(o);
     out.push({
       ...o,
       barber_name: o.barbers?.name,
-      shipping: o.shipping_json,
+      shipping,
+      billing,
       items: await enrichItemsWithProductImages(items || []),
     });
   }
@@ -408,10 +441,12 @@ async function getOrderAdmin(id) {
   const { data: o } = await supabase().from("orders").select("*, barbers(name)").eq("id", id).single();
   if (!o) return null;
   const { data: items } = await supabase().from("order_items").select("*").eq("order_id", id);
+  const { shipping, billing } = parseOrderAddresses(o);
   return {
     ...o,
     barber_name: o.barbers?.name,
-    shipping: o.shipping_json,
+    shipping,
+    billing,
     items: await enrichItemsWithProductImages(items || []),
   };
 }
