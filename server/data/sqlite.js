@@ -211,10 +211,16 @@ async function getOrderByNumber(orderNumber) {
     )
     .get(orderNumber);
   if (!order) return null;
+
+  const getPrimaryImage = db.prepare(
+    "SELECT url FROM product_images WHERE product_id = ? ORDER BY sort_order LIMIT 1"
+  );
+  const items = db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(order.id);
+
   return {
     ...order,
     shipping: JSON.parse(order.shipping_json),
-    items: db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(order.id),
+    items: enrichItemsWithProductImages(items),
   };
 }
 
@@ -319,6 +325,17 @@ async function getAllProductsAdmin() {
   }));
 }
 
+function enrichItemsWithProductImages(items) {
+  if (!items?.length) return [];
+  const getPrimaryImage = db.prepare(
+    "SELECT url FROM product_images WHERE product_id = ? ORDER BY sort_order LIMIT 1"
+  );
+  return items.map((item) => ({
+    ...item,
+    image: getPrimaryImage.get(item.product_id)?.url || null,
+  }));
+}
+
 async function getAllOrdersAdmin() {
   const orders = db
     .prepare(`SELECT o.*, b.name as barber_name FROM orders o LEFT JOIN barbers b ON b.id = o.barber_id ORDER BY o.created_at DESC`)
@@ -326,7 +343,9 @@ async function getAllOrdersAdmin() {
   return orders.map((o) => ({
     ...o,
     shipping: JSON.parse(o.shipping_json),
-    items: db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(o.id),
+    items: enrichItemsWithProductImages(
+      db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(o.id)
+    ),
   }));
 }
 
@@ -335,7 +354,11 @@ async function getOrderAdmin(id) {
     .prepare(`SELECT o.*, b.name as barber_name FROM orders o LEFT JOIN barbers b ON b.id = o.barber_id WHERE o.id = ?`)
     .get(id);
   if (!o) return null;
-  return { ...o, shipping: JSON.parse(o.shipping_json), items: db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(id) };
+  return {
+    ...o,
+    shipping: JSON.parse(o.shipping_json),
+    items: enrichItemsWithProductImages(db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(id)),
+  };
 }
 
 async function updateOrderStatus(id, status) {

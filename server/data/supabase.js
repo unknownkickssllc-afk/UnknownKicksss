@@ -251,11 +251,12 @@ async function getOrderByNumber(orderNumber) {
     .single();
   if (error || !order) return null;
   const { data: items } = await sb.from("order_items").select("*").eq("order_id", order.id);
+
   return {
     ...order,
     barber_name: order.barbers?.name,
     shipping: order.shipping_json,
-    items: items || [],
+    items: await enrichItemsWithProductImages(items || []),
   };
 }
 
@@ -368,6 +369,26 @@ async function getAllProductsAdmin() {
   return result;
 }
 
+async function enrichItemsWithProductImages(items) {
+  if (!items?.length) return [];
+  const productIds = [...new Set(items.map((i) => i.product_id))];
+  const imageByProduct = {};
+  if (productIds.length) {
+    const { data: images } = await supabase()
+      .from("product_images")
+      .select("product_id, url, sort_order")
+      .in("product_id", productIds)
+      .order("sort_order");
+    for (const img of images || []) {
+      if (!imageByProduct[img.product_id]) imageByProduct[img.product_id] = img.url;
+    }
+  }
+  return items.map((item) => ({
+    ...item,
+    image: imageByProduct[item.product_id] || null,
+  }));
+}
+
 async function getAllOrdersAdmin() {
   const { data: orders } = await supabase().from("orders").select("*, barbers(name)").order("created_at", { ascending: false });
   const out = [];
@@ -377,7 +398,7 @@ async function getAllOrdersAdmin() {
       ...o,
       barber_name: o.barbers?.name,
       shipping: o.shipping_json,
-      items: items || [],
+      items: await enrichItemsWithProductImages(items || []),
     });
   }
   return out;
@@ -387,7 +408,12 @@ async function getOrderAdmin(id) {
   const { data: o } = await supabase().from("orders").select("*, barbers(name)").eq("id", id).single();
   if (!o) return null;
   const { data: items } = await supabase().from("order_items").select("*").eq("order_id", id);
-  return { ...o, barber_name: o.barbers?.name, shipping: o.shipping_json, items: items || [] };
+  return {
+    ...o,
+    barber_name: o.barbers?.name,
+    shipping: o.shipping_json,
+    items: await enrichItemsWithProductImages(items || []),
+  };
 }
 
 async function updateOrderStatus(id, status) {

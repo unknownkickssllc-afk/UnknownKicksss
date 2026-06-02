@@ -181,6 +181,35 @@
     return `<div class="product-thumb product-thumb--empty">No img</div>`;
   }
 
+  function renderOrderItemsList(items) {
+    if (!items?.length) {
+      return `<p class="field-hint">No items in this order.</p>`;
+    }
+    return `<ul class="order-items-list">
+      ${items
+        .map((i) => {
+          const thumb = i.image
+            ? `<img class="order-item__img" src="${esc(i.image)}" alt="" />`
+            : `<div class="order-item__img order-item__img--empty">No photo</div>`;
+          const unit = i.quantity > 0 ? i.line_total / i.quantity : i.unit_price;
+          return `<li class="order-item">
+            ${thumb}
+            <div class="order-item__body">
+              <div class="order-item__name">${esc(i.product_name)}</div>
+              <div class="order-item__meta">
+                <span>Size ${esc(i.size)}</span>
+                <span>Color ${esc(i.color)}</span>
+                <span>Qty ${i.quantity}</span>
+              </div>
+              <div class="order-item__unit">${money(unit)} each</div>
+            </div>
+            <div class="order-item__total">${money(i.line_total)}</div>
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+  }
+
   function setLoginLoading(loading) {
     loginSubmit.disabled = loading;
     loginSubmit.classList.toggle("is-loading", loading);
@@ -825,7 +854,7 @@
 
         <div class="modal-section">
           <h3 class="modal-section__title">Items ordered</h3>
-          <ul>${o.items.map((i) => `<li>${esc(i.product_name)} — ${esc(i.size)} / ${esc(i.color)} × ${i.quantity} (${money(i.line_total)})</li>`).join("")}</ul>
+          ${renderOrderItemsList(o.items)}
         </div>
 
         <div class="form-field">

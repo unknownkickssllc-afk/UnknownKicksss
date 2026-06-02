@@ -10,21 +10,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="/admin/admin.css" />
 </head>
 <body>
   <div id="login-screen" class="login-screen">
     <div class="login-layout">
       <aside class="login-brand" aria-hidden="true">
-        <img src="/logo.jpg" alt="" class="login-brand__logo" width="140" height="32" />
-        <p class="login-brand__tagline">Admin Dashboard</p>
+        <div class="login-brand__head">
+          <img src="/logo.jpg" alt="Unknown Kicks" class="login-brand__logo" />
+          <p class="login-brand__tagline">Admin Dashboard</p>
+        </div>
         <p class="login-brand__copy">Manage products, orders, referrals, and site content.</p>
       </aside>
 
       <section class="login-panel">
         <div class="login-panel__inner">
           <header class="login-header">
-            <img src="/logo.jpg" alt="Unknown Kicks" class="login-header__logo" width="120" height="28" />
+            <img src="/logo.jpg" alt="Unknown Kicks" class="login-header__logo" />
             <h1>Sign in</h1>
             <p>Use your admin credentials to access the dashboard.</p>
           </header>
@@ -79,7 +81,7 @@
   <div id="app" class="app" hidden>
     <aside class="sidebar">
       <div class="sidebar-top">
-        <img src="/logo.jpg" alt="Unknown Kicks" class="sidebar-logo" width="100" height="24" />
+        <img src="/logo.jpg" alt="Unknown Kicks" class="sidebar-logo" />
         <span class="sidebar-label">Admin</span>
       </div>
       <nav class="sidebar-nav" aria-label="Admin navigation">
@@ -125,6 +127,6 @@
   <div id="toast-root" class="toast-root" aria-live="polite"></div>
   <div id="modal-root" class="modal-root" hidden></div>
 
-  <script src="admin.js"></script>
+  <script src="/admin/admin.js"></script>
 </body>
 </html>

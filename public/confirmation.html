@@ -7,23 +7,58 @@
   <link rel="icon" href="/logo.jpg" type="image/jpeg" />
   <link rel="apple-touch-icon" href="/logo.jpg" />
   <title>Order confirmed — Unknown Kicks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="page-inner">
   <header class="site-header site-header--dark">
-    <a href="index.html" class="brand-logo" style="grid-column:1/-1;justify-self:center"><img src="logo.jpg" alt="Unknown Kicks" /></a>
+    <nav class="nav-left">
+      <a href="index.html">Home</a>
+      <a href="index.html#catalog">Catalog</a>
+    </nav>
+    <a href="index.html" class="brand-logo"><img src="logo.jpg" alt="Unknown Kicks" /></a>
+    <div class="nav-right"></div>
   </header>
+
   <main class="page-main confirm-page">
-    <h1 class="page-title">Order confirmed</h1>
-    <div id="confirm-loading">Loading order…</div>
-    <div id="confirm-body" hidden>
-      <p class="confirm-lead">Thank you. Your order <strong id="order-number"></strong> has been placed.</p>
-      <div class="confirm-grid" id="confirm-details"></div>
-      <a href="index.html" class="btn-ghost" style="color:var(--fg);border-color:var(--fg);margin-top:2rem">Continue shopping</a>
+    <div id="confirm-loading" class="confirm-loading">
+      <p>Loading your order…</p>
     </div>
-    <p id="confirm-error" class="error-msg" hidden></p>
+
+    <div id="confirm-body" hidden>
+      <header class="confirm-hero">
+        <div class="confirm-hero__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <h1 class="confirm-hero__title">Order confirmed</h1>
+        <p class="confirm-hero__lead">Thank you for your purchase. We&apos;re preparing your order for shipment.</p>
+        <p class="confirm-hero__order">Order number <strong id="order-number"></strong></p>
+      </header>
+
+      <div class="confirm-layout">
+        <div class="confirm-details" id="confirm-details"></div>
+        <aside class="confirm-summary" id="confirm-summary"></aside>
+      </div>
+
+      <div class="confirm-actions">
+        <a href="index.html#catalog" class="btn-cart confirm-actions__btn">Continue shopping</a>
+        <p class="confirm-note">Questions about your order? Reply to your confirmation email and our team will help.</p>
+      </div>
+    </div>
+
+    <div id="confirm-error" class="confirm-error" hidden>
+      <p class="confirm-error__title">Unable to load order</p>
+      <p id="confirm-error-msg" class="confirm-error__msg"></p>
+      <a href="index.html" class="btn-ghost confirm-error__btn">Back to home</a>
+    </div>
   </main>
+
   <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/confirmation.js"></script>
 </body>

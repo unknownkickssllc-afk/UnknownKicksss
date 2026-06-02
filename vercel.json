@@ -1,9 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/admin/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/admin", "destination": "/admin/index.html" }
+    { "source": "/admin/", "destination": "/admin/index.html" }
   ],
   "functions": {
     "api/index.js": {

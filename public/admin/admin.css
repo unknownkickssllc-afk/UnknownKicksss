@@ -39,25 +39,36 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
   padding: clamp(2rem, 6vw, 4rem);
   background: #0a0a0a;
   color: #fff;
 }
 
+.login-brand__head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
 .login-brand__logo {
   display: block;
   width: auto;
-  height: 32px;
-  margin-bottom: 2rem;
+  height: 56px;
+  max-width: 120px;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .login-brand__tagline {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 500;
   letter-spacing: 0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .login-brand__copy {
@@ -87,6 +98,10 @@ body {
 
 .login-header__logo {
   display: none;
+  height: 48px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
   margin-bottom: 1.25rem;
 }
 
@@ -282,14 +297,20 @@ body {
 }
 
 .sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   padding: 0 0.5rem;
 }
 
 .sidebar-logo {
   display: block;
-  height: 24px;
+  height: 36px;
   width: auto;
-  margin-bottom: 0.35rem;
+  max-width: 80px;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .sidebar-label {
@@ -298,6 +319,7 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
+  line-height: 1;
 }
 
 .sidebar-nav {
@@ -1078,6 +1100,85 @@ body {
 .order-detail { font-size: 0.88rem; line-height: 1.6; }
 .order-detail dt { font-weight: 600; margin-top: 0.75rem; }
 
+.order-items-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  background: #fafafa;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.order-item__img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--admin-border);
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.order-item__img--empty {
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  color: #aaa;
+  text-align: center;
+  line-height: 1.2;
+  padding: 0.25rem;
+}
+
+.order-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-item__name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+}
+
+.order-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  color: var(--admin-muted);
+}
+
+.order-item__meta span {
+  padding: 0.12rem 0.45rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.order-item__unit {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+
+.order-item__total {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: right;
+  min-width: 4.5rem;
+}
+
 /* ─── Barber cards ─── */
 .barber-card {
   display: grid;
@@ -1087,11 +1188,11 @@ body {
 .barber-card__stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .barber-stat {
-  padding: 0.75rem;
+  padding: 1rem 1.15rem;
   background: #fafafa;
   border-radius: 8px;
 }
@@ -1110,7 +1211,24 @@ body {
   font-size: 1.1rem;
 }
 
-.barber-detail { margin-top: 0; }
+.barber-detail {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+}
+
+.barber-detail .card__header {
+  margin-bottom: 1.25rem;
+}
+
+.barber-detail .barber-card__stats {
+  margin-bottom: 1.5rem;
+}
+
+.barber-detail .btn-group {
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
 
 code, .code-chip {
   font-family: ui-monospace, monospace;
