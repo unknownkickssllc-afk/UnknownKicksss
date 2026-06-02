@@ -1,6 +1,6 @@
 require("dotenv").config();
-const bcrypt = require("bcryptjs");
 const data = require("./data");
+const { getAdminPin } = require("./lib/adminAuth");
 const { discoverProductsFromFolder, slugify } = require("./lib/discoverProducts");
 const { isSupabaseConfigured } = require("./lib/supabase");
 
@@ -32,11 +32,6 @@ async function seed() {
   console.log(`Found ${products.length} product(s) from /products folder`);
 
   await data.clearCatalog();
-
-  const email = process.env.ADMIN_EMAIL || "admin@hillwebworks.com";
-  const password = process.env.ADMIN_PASSWORD || "UnknownKicksAdmin2026!";
-  const hash = bcrypt.hashSync(password, 10);
-  await data.upsertAdmin(email, hash);
 
   const catIds = {};
   for (const c of categories) {
@@ -105,7 +100,7 @@ async function seed() {
   const count = await data.countProducts();
   console.log("Seed complete.");
   console.log(`Products in database: ${count}`);
-  console.log(`Admin login: ${email} / ${password}`);
+  console.log(`Admin access code: ${getAdminPin()} (set ADMIN_PIN in .env to change)`);
   console.log("Demo referral codes:", codes.join(", "));
 }
 

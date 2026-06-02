@@ -72,7 +72,7 @@ npm start
 
 - **Store:** http://localhost:3000  
 - **Admin:** http://localhost:3000/admin/  
-- **Default login:** `admin@unknownkicks.com` / `changeme123`  
+- **Default admin code:** `0000` (set `ADMIN_PIN` in `.env` to change)  
 - **Demo referral codes:** `BARBER-DEMO-001`, `BARBER-DEMO-002`, `UK-REF-TEST`
 
 ## Stripe setup
@@ -131,8 +131,7 @@ Never commit `.env`. Copy from `.env.example` and set secrets only in Vercel.
 | `BASE_URL` | Yes | `https://your-app.vercel.app` (no trailing slash) |
 | `SUPABASE_URL` | Yes | From Supabase → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | **service_role** key (server only) |
-| `ADMIN_EMAIL` | Yes | Change from default |
-| `ADMIN_PASSWORD` | Yes | Strong password |
+| `ADMIN_PIN` | Yes | 4-digit admin access code (change from default `0000`) |
 | `DEFAULT_COMMISSION_RATE` | No | Default `10` |
 | `STRIPE_SECRET_KEY` | For payments | Test or live key |
 | `STRIPE_WEBHOOK_SECRET` | For payments | Webhook signing secret |

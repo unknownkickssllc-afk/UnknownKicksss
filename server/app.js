@@ -100,10 +100,11 @@ app.get("/favicon.ico", (_req, res) => {
 
 // Admin + uploads always via Express (works locally and on Vercel)
 app.use("/uploads", express.static(path.join(publicRoot, "uploads")));
-app.use(
-  "/admin",
-  express.static(path.join(publicRoot, "admin"), { index: "index.html" })
-);
+const adminRoot = path.join(publicRoot, "admin");
+app.get(["/admin", "/admin/"], (_req, res) => {
+  res.sendFile(path.join(adminRoot, "index.html"));
+});
+app.use("/admin", express.static(adminRoot, { redirect: false }));
 
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
 if (!onVercel) {

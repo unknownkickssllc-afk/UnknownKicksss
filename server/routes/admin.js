@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const data = require("../data");
-const { authenticateAdmin } = require("../lib/adminAuth");
+const { authenticateAdminPin } = require("../lib/adminAuth");
 const { requireAdmin } = require("../middleware/auth");
 const {
   deleteRemoteUpload,
@@ -39,19 +39,18 @@ async function persistUpload(file, folder = "products") {
   return `/uploads/products/${file.filename}`;
 }
 
-router.post("/login", async (req, res) => {
-  try {
-    const result = await authenticateAdmin(data, req.body.email, req.body.password);
-    if (!result.ok) {
-      return res.status(result.status).json({ error: result.error });
-    }
-    const { user } = result;
-    req.session.adminId = user.id;
-    req.session.adminEmail = user.email;
-    res.json({ success: true, email: user.email });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+router.post("/login", (req, res) => {
+  const code =
+    req.body?.code ??
+    req.body?.pin ??
+    req.body?.accessCode ??
+    req.body?.password;
+  const result = authenticateAdminPin(code);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
   }
+  req.session.adminAuthenticated = true;
+  res.json({ success: true });
 });
 
 router.post("/logout", (req, res) => {
@@ -60,8 +59,8 @@ router.post("/logout", (req, res) => {
 });
 
 router.get("/me", (req, res) => {
-  if (!req.session?.adminId) return res.status(401).json({ error: "Unauthorized" });
-  res.json({ email: req.session.adminEmail });
+  if (!req.session?.adminAuthenticated) return res.status(401).json({ error: "Unauthorized" });
+  res.json({ authenticated: true });
 });
 
 router.get("/products", requireAdmin, async (req, res) => {

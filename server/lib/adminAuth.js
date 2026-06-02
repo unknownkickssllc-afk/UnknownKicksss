@@ -1,54 +1,26 @@
-const bcrypt = require("bcryptjs");
+const DEFAULT_ADMIN_PIN = "0000";
 
-const HILLWEBWORKS_DOMAIN = "@hillwebworks.com";
-const DEFAULT_ADMIN_PASSWORD = "UnknownKicksAdmin2026!";
-
-function normalizeAdminEmail(email) {
-  return String(email || "").trim().toLowerCase();
+function getAdminPin() {
+  return String(process.env.ADMIN_PIN || DEFAULT_ADMIN_PIN).trim();
 }
 
-function isHillWebWorksAdminEmail(email) {
-  return normalizeAdminEmail(email).endsWith(HILLWEBWORKS_DOMAIN);
+function normalizePin(code) {
+  return String(code || "").replace(/\D/g, "").slice(0, 4);
 }
 
-function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
-}
-
-async function authenticateAdmin(data, email, password) {
-  const normalized = normalizeAdminEmail(email);
-  const pwd = String(password || "");
-
-  if (!normalized || !pwd) {
-    return { ok: false, error: "Email and password are required", status: 400 };
+function authenticateAdminPin(code) {
+  const pin = normalizePin(code);
+  if (!pin || pin.length !== 4) {
+    return { ok: false, error: "Enter your 4-digit access code", status: 400 };
   }
-
-  if (isHillWebWorksAdminEmail(normalized)) {
-    if (pwd !== getAdminPassword()) {
-      return { ok: false, error: "Invalid email or password", status: 401 };
-    }
-
-    let user = await data.getAdminByEmail(normalized);
-    if (!user) {
-      const hash = bcrypt.hashSync(getAdminPassword(), 10);
-      const id = await data.upsertAdmin(normalized, hash);
-      user = { id, email: normalized };
-    }
-
-    return { ok: true, user };
+  if (pin !== getAdminPin()) {
+    return { ok: false, error: "Invalid access code", status: 401 };
   }
-
-  const user = await data.getAdminByEmail(normalized);
-  if (!user || !bcrypt.compareSync(pwd, user.password_hash)) {
-    return { ok: false, error: "Invalid email or password", status: 401 };
-  }
-
-  return { ok: true, user };
+  return { ok: true };
 }
 
 module.exports = {
-  authenticateAdmin,
-  getAdminPassword,
-  isHillWebWorksAdminEmail,
-  normalizeAdminEmail,
+  authenticateAdminPin,
+  getAdminPin,
+  normalizePin,
 };

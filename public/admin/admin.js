@@ -1,17 +1,17 @@
 (function () {
   const loginScreen = document.getElementById("login-screen");
   const app = document.getElementById("app");
+  const navToggle = document.getElementById("nav-toggle");
+  const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   const loginForm = document.getElementById("login-form");
   const loginError = document.getElementById("login-error");
   const loginSubmit = document.getElementById("login-submit");
   const loginSubmitLabel = loginSubmit.querySelector(".login-submit__label");
   const loginSubmitSpinner = loginSubmit.querySelector(".login-submit__spinner");
-  const passwordInput = document.getElementById("login-password");
-  const togglePasswordBtn = document.getElementById("toggle-password");
+  const codeInput = document.getElementById("login-code");
   const viewRoot = document.getElementById("view-root");
   const viewTitle = document.getElementById("view-title");
   const viewSubtitle = document.getElementById("view-subtitle");
-  const adminEmail = document.getElementById("admin-email");
   const toastRoot = document.getElementById("toast-root");
   const modalRoot = document.getElementById("modal-root");
 
@@ -38,6 +38,17 @@
     });
   }
 
+  function setNavOpen(open) {
+    if (!app) return;
+    app.classList.toggle("is-nav-open", open);
+    if (sidebarBackdrop) {
+      sidebarBackdrop.hidden = !open;
+      sidebarBackdrop.setAttribute("aria-hidden", open ? "false" : "true");
+    }
+    if (navToggle) navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    document.body.classList.toggle("admin-nav-open", open);
+  }
+
   function navigateTo(view, { updateHash = true } = {}) {
     if (!validViews.includes(view)) view = "overview";
     currentView = view;
@@ -45,6 +56,7 @@
     if (updateHash && location.hash !== `#${view}`) {
       location.hash = view;
     }
+    setNavOpen(false);
     renderView();
   }
 
@@ -217,11 +229,9 @@
     loginSubmitLabel.hidden = loading;
   }
 
-  togglePasswordBtn.addEventListener("click", () => {
-    const show = passwordInput.type === "password";
-    passwordInput.type = show ? "text" : "password";
-    togglePasswordBtn.textContent = show ? "Hide" : "Show";
-    togglePasswordBtn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  codeInput.addEventListener("input", () => {
+    codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 4);
+    if (codeInput.value.length === 4) loginError.hidden = true;
   });
 
   loginForm.addEventListener("submit", async (e) => {
@@ -229,18 +239,17 @@
     loginError.hidden = true;
     setLoginLoading(true);
 
-    const fd = new FormData(loginForm);
-    const email = String(fd.get("email") || "").trim().toLowerCase();
-    const password = String(fd.get("password") || "");
+    const code = String(codeInput.value || "").replace(/\D/g, "");
 
     try {
-      await api("/login", { method: "POST", body: { email, password } });
+      await api("/login", { method: "POST", body: { code } });
       loginForm.reset();
       await showApp();
     } catch (err) {
-      loginError.textContent = err.message || "Sign in failed. Check your email and password.";
+      loginError.textContent = err.message || "Invalid access code. Try again.";
       loginError.hidden = false;
-      passwordInput.focus();
+      codeInput.focus();
+      codeInput.select();
     } finally {
       setLoginLoading(false);
     }
@@ -252,11 +261,23 @@
     } catch {
       /* session may already be gone */
     }
-    app.hidden = true;
-    loginScreen.hidden = false;
     loginForm.reset();
-    loginError.hidden = true;
-    document.getElementById("login-email").focus();
+    setNavOpen(false);
+    showLoginScreen();
+  });
+
+  navToggle?.addEventListener("click", () => {
+    setNavOpen(!app.classList.contains("is-nav-open"));
+  });
+
+  sidebarBackdrop?.addEventListener("click", () => setNavOpen(false));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setNavOpen(false);
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) setNavOpen(false);
   });
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -269,18 +290,24 @@
     if (view !== currentView) navigateTo(view, { updateHash: false });
   });
 
+  function showLoginScreen() {
+    app.hidden = true;
+    loginScreen.hidden = false;
+    loginError.hidden = true;
+    codeInput.focus();
+  }
+
   async function showApp() {
     try {
-      const me = await api("/me");
-      adminEmail.textContent = me.email;
+      await api("/me");
+      setNavOpen(false);
       loginScreen.hidden = true;
       app.hidden = false;
       currentView = getViewFromHash();
       setActiveNav(currentView);
       renderView();
     } catch {
-      loginScreen.hidden = false;
-      app.hidden = true;
+      showLoginScreen();
     }
   }
 
@@ -423,9 +450,9 @@
             <input type="checkbox" id="add-sold-out" name="sold_out" />
             <label for="add-sold-out">Mark as sold out (hide from customers)</label>
           </div>
-          <div class="form-actions">
-            <button type="submit" class="btn">Save product</button>
-            <button type="button" class="btn ghost" id="cancel-add-product">Cancel</button>
+          <div class="form-actions form-actions--stack">
+            <button type="submit" class="btn btn--block">Save product</button>
+            <button type="button" class="btn ghost btn--block" id="cancel-add-product">Cancel</button>
           </div>
         </form>
       </div>
@@ -439,8 +466,8 @@
         </div>
         ${
           products.length
-            ? `<div class="table-wrap">
-          <table class="data-table">
+            ? `<div class="table-wrap table-wrap--stack">
+          <table class="data-table data-table--stack">
             <thead>
               <tr>
                 <th>Product</th>
@@ -455,7 +482,7 @@
                 .map((p) => {
                   const stock = p.variants.reduce((s, v) => s + v.stock, 0);
                   return `<tr>
-                    <td>
+                    <td data-label="Product">
                       <div class="product-cell">
                         ${productThumb(p)}
                         <div>
@@ -464,11 +491,11 @@
                         </div>
                       </div>
                     </td>
-                    <td>${money(p.price)}</td>
-                    <td>${stock} item${stock === 1 ? "" : "s"}</td>
-                    <td>${p.sold_out ? '<span class="badge badge--danger">Sold out</span>' : '<span class="badge badge--success">Live</span>'}</td>
-                    <td>
-                      <div class="btn-group">
+                    <td data-label="Price">${money(p.price)}</td>
+                    <td data-label="In stock">${stock} item${stock === 1 ? "" : "s"}</td>
+                    <td data-label="Status">${p.sold_out ? '<span class="badge badge--danger">Sold out</span>' : '<span class="badge badge--success">Live</span>'}</td>
+                    <td data-label="Actions">
+                      <div class="btn-group btn-group--stack">
                         <button type="button" class="btn secondary sm" data-edit="${p.id}">Edit</button>
                         <button type="button" class="btn danger sm" data-del="${p.id}">Delete</button>
                       </div>
@@ -609,17 +636,17 @@
         <p class="field-hint">Change size, color, or quantity below, then click Save.</p>
         ${
           p.variants.length
-            ? `<div class="table-wrap">
-          <table class="data-table variant-table">
+            ? `<div class="table-wrap table-wrap--stack">
+          <table class="data-table data-table--stack variant-table">
             <thead><tr><th>Size</th><th>Color</th><th>In stock</th><th></th></tr></thead>
             <tbody id="variant-rows">${p.variants
               .map(
                 (v) => `<tr data-variant-id="${v.id}" data-sku="${esc(v.sku || "")}">
-              <td><input class="variant-field" name="size" value="${esc(v.size)}" aria-label="Size" required /></td>
-              <td><input class="variant-field" name="color" value="${esc(v.color)}" aria-label="Color" required /></td>
-              <td><input class="variant-field variant-field--stock" name="stock" type="number" min="0" value="${v.stock}" aria-label="Stock" required /></td>
-              <td>
-                <div class="btn-group">
+              <td data-label="Size"><input class="variant-field" name="size" value="${esc(v.size)}" aria-label="Size" required /></td>
+              <td data-label="Color"><input class="variant-field" name="color" value="${esc(v.color)}" aria-label="Color" required /></td>
+              <td data-label="In stock"><input class="variant-field variant-field--stock" name="stock" type="number" min="0" value="${v.stock}" aria-label="Stock" required /></td>
+              <td data-label="Actions">
+                <div class="btn-group btn-group--stack">
                   <button type="button" class="btn secondary sm" data-save-var="${v.id}">Save</button>
                   <button type="button" class="btn danger sm" data-del-var="${v.id}">Remove</button>
                 </div>
@@ -787,8 +814,8 @@
         </div>
         ${
           orders.length
-            ? `<div class="table-wrap">
-          <table class="data-table">
+            ? `<div class="table-wrap table-wrap--stack">
+          <table class="data-table data-table--stack">
             <thead>
               <tr>
                 <th>Order</th>
@@ -802,15 +829,15 @@
             <tbody id="order-rows">${orders
               .map(
                 (o) => `<tr>
-              <td><strong>${esc(o.order_number)}</strong></td>
-              <td>
+              <td data-label="Order"><strong>${esc(o.order_number)}</strong></td>
+              <td data-label="Customer">
                 ${esc(o.customer_name)}<br>
                 <span class="product-meta">${esc(o.customer_email)}</span>
               </td>
-              <td>${money(o.total)}</td>
-              <td><span class="badge ${o.payment_status === "paid" ? "badge--success" : "badge--warning"}">${esc(o.payment_status)}</span></td>
-              <td>${o.referral_code_text ? `<span class="code-chip">${esc(o.referral_code_text)}</span>` : "—"}</td>
-              <td><button type="button" class="btn secondary sm" data-order="${o.id}">View details</button></td>
+              <td data-label="Total">${money(o.total)}</td>
+              <td data-label="Payment"><span class="badge ${o.payment_status === "paid" ? "badge--success" : "badge--warning"}">${esc(o.payment_status)}</span></td>
+              <td data-label="Referral">${o.referral_code_text ? `<span class="code-chip">${esc(o.referral_code_text)}</span>` : "—"}</td>
+              <td data-label="Actions"><button type="button" class="btn secondary sm btn--block" data-order="${o.id}">View details</button></td>
             </tr>`
               )
               .join("")}</tbody>
@@ -874,8 +901,8 @@
               .join("")}
           </select>
         </div>
-        <div class="form-actions">
-          <button type="button" class="btn" id="save-order-status">Save status</button>
+        <div class="form-actions form-actions--stack">
+          <button type="button" class="btn btn--block" id="save-order-status">Save status</button>
         </div>`
       );
 
@@ -929,14 +956,14 @@
               <span class="field-hint">Percentage of each referred sale they earn.</span>
             </div>
           </div>
-          <div class="form-actions">
-            <button type="submit" class="btn">Save barber</button>
-            <button type="button" class="btn ghost" id="cancel-add-barber">Cancel</button>
+          <div class="form-actions form-actions--stack">
+            <button type="submit" class="btn btn--block">Save barber</button>
+            <button type="button" class="btn ghost btn--block" id="cancel-add-barber">Cancel</button>
           </div>
         </form>
       </div>
 
-      <div id="barber-list">${barbers.length ? "" : `<div class="card"><div class="empty-state"><strong>No barbers yet</strong>Add your first barber partner above.</div></div>`}</div>`;
+      <div id="barber-list">${barbers.length ? "" : `<div class="card"><div class="empty-state"><strong>No barbers yet</strong><p>Add your first barber partner above.</p></div></div>`}</div>`;
 
     const addPanel = document.getElementById("add-barber-panel");
     const toggleAdd = document.getElementById("toggle-add-barber");
@@ -988,7 +1015,7 @@
           <div class="barber-stat"><span>Paid out</span><strong>${money(b.stats.paid_commissions)}</strong></div>
         </div>
 
-        <div class="btn-group">
+        <div class="btn-group btn-group--stack">
           <button type="button" class="btn secondary sm" data-dashboard="${b.id}">View details</button>
           <button type="button" class="btn sm" data-gen-codes="${b.id}">Generate 5 codes</button>
           <button type="button" class="btn secondary sm" data-pay-all="${b.id}">Mark all paid</button>
@@ -998,14 +1025,14 @@
         <hr class="section-divider" />
 
         <h3 class="modal-section__title">Referral codes</h3>
-        <div class="table-wrap">
-          <table class="data-table">
+        <div class="table-wrap table-wrap--stack">
+          <table class="data-table data-table--stack">
             <thead><tr><th>Code</th><th>Status</th></tr></thead>
             <tbody>${b.referralCodes
               .map(
                 (c) => `<tr>
-              <td><span class="code-chip">${esc(c.code)}</span></td>
-              <td>${c.used_at ? '<span class="badge badge--danger">Used</span>' : '<span class="badge badge--success">Available</span>'}</td>
+              <td data-label="Code"><span class="code-chip">${esc(c.code)}</span></td>
+              <td data-label="Status">${c.used_at ? '<span class="badge badge--danger">Used</span>' : '<span class="badge badge--success">Available</span>'}</td>
             </tr>`
               )
               .join("")}</tbody>
@@ -1073,17 +1100,17 @@
 
           <div class="modal-section">
             <h3 class="modal-section__title">Commission history</h3>
-            <div class="table-wrap">
-              <table class="data-table">
+            <div class="table-wrap table-wrap--stack">
+              <table class="data-table data-table--stack">
                 <thead><tr><th>Order</th><th>Amount</th><th>Status</th><th></th></tr></thead>
                 <tbody id="comm-rows">${data.commissions
                   .map((c) => {
                     const order = data.orders.find((o) => o.id === c.order_id);
                     return `<tr>
-                      <td>${esc(order?.order_number || c.order_id)}</td>
-                      <td>${money(c.amount)}</td>
-                      <td><span class="badge ${c.status === "paid" ? "badge--success" : "badge--warning"}">${esc(c.status)}</span></td>
-                      <td>${c.status === "unpaid" ? `<button type="button" class="btn secondary sm" data-pay-comm="${c.id}">Mark paid</button>` : esc(c.paid_at || "—")}</td>
+                      <td data-label="Order">${esc(order?.order_number || c.order_id)}</td>
+                      <td data-label="Amount">${money(c.amount)}</td>
+                      <td data-label="Status"><span class="badge ${c.status === "paid" ? "badge--success" : "badge--warning"}">${esc(c.status)}</span></td>
+                      <td data-label="Actions">${c.status === "unpaid" ? `<button type="button" class="btn secondary sm btn--block" data-pay-comm="${c.id}">Mark paid</button>` : esc(c.paid_at || "—")}</td>
                     </tr>`;
                   })
                   .join("")}</tbody>
@@ -1116,7 +1143,7 @@
             <p class="card__desc">These settings control the main banner and text on your store homepage.</p>
           </div>
         </div>
-        <form id="content-form" class="form-grid">
+        <form id="content-form" class="form-grid form-grid--comfortable">
           <div class="form-field">
             <label>Top banner text</label>
             <input name="hero_tagline" value="${esc(content.hero_tagline || "")}" placeholder="e.g. SS2026 OUT NOW" />
@@ -1143,8 +1170,8 @@
             <label>Promo banner image (optional)</label>
             <input name="promo_banner" value="${esc(content.promo_banner || "")}" placeholder="Leave blank to hide" />
           </div>
-          <div class="form-actions">
-            <button type="submit" class="btn">Save changes</button>
+          <div class="form-actions form-actions--stack">
+            <button type="submit" class="btn btn--block">Save changes</button>
           </div>
         </form>
       </div>
@@ -1158,7 +1185,7 @@
         </div>
         <form id="content-upload-form" class="file-upload">
           <input type="file" accept="image/*" name="image" required />
-          <button type="submit" class="btn secondary">Upload image</button>
+          <button type="submit" class="btn secondary btn--block">Upload image</button>
         </form>
         <p id="upload-result" class="field-hint" style="margin-top:0.75rem"></p>
       </div>`;

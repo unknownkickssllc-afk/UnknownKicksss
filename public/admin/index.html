@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css" />
+  <link rel="stylesheet" href="/admin/admin.css?v=4" />
 </head>
 <body>
   <div id="login-screen" class="login-screen">
@@ -27,45 +27,33 @@
         <div class="login-panel__inner">
           <header class="login-header">
             <img src="/logo.jpg" alt="Unknown Kicks" class="login-header__logo" />
-            <h1>Sign in</h1>
-            <p>Sign in with your @hillwebworks.com email.</p>
+            <h1>Admin access</h1>
+            <p>Enter your 4-digit access code.</p>
           </header>
 
           <form id="login-form" class="login-form" novalidate>
             <div class="field">
-              <label for="login-email">Email</label>
+              <label for="login-code">Access code</label>
               <input
-                id="login-email"
-                type="email"
-                name="email"
+                id="login-code"
+                class="pin-input"
+                type="password"
+                name="code"
                 required
-                autocomplete="username"
-                placeholder="you@hillwebworks.com"
+                inputmode="numeric"
+                pattern="[0-9]{4}"
+                maxlength="4"
+                minlength="4"
+                autocomplete="one-time-code"
+                placeholder="••••"
                 spellcheck="false"
               />
-            </div>
-
-            <div class="field">
-              <label for="login-password">Password</label>
-              <div class="password-wrap">
-                <input
-                  id="login-password"
-                  type="password"
-                  name="password"
-                  required
-                  autocomplete="current-password"
-                  placeholder="Enter your password"
-                />
-                <button type="button" id="toggle-password" class="password-toggle" aria-label="Show password">
-                  Show
-                </button>
-              </div>
             </div>
 
             <p id="login-error" class="login-error" role="alert" hidden></p>
 
             <button type="submit" id="login-submit" class="login-submit">
-              <span class="login-submit__label">Sign in</span>
+              <span class="login-submit__label">Continue</span>
               <span class="login-submit__spinner" hidden aria-hidden="true"></span>
             </button>
           </form>
@@ -79,7 +67,8 @@
   </div>
 
   <div id="app" class="app" hidden>
-    <aside class="sidebar">
+    <div id="sidebar-backdrop" class="sidebar-backdrop" hidden aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-top">
         <img src="/logo.jpg" alt="Unknown Kicks" class="sidebar-logo" />
         <span class="sidebar-label">Admin</span>
@@ -113,12 +102,26 @@
     </aside>
 
     <main class="main">
+      <header class="mobile-topbar">
+        <button
+          type="button"
+          id="nav-toggle"
+          class="nav-toggle"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="sidebar"
+        >
+          <span class="nav-toggle__icon" aria-hidden="true"></span>
+        </button>
+        <img src="/logo.jpg" alt="" class="mobile-topbar__logo" width="28" height="28" />
+        <span class="mobile-topbar__title">Admin</span>
+      </header>
       <header class="main-header">
         <div class="main-header__text">
           <h1 id="view-title">Dashboard</h1>
           <p id="view-subtitle" class="view-subtitle">Your store at a glance</p>
         </div>
-        <span id="admin-email" class="user-badge"></span>
+        <span id="admin-badge" class="user-badge">Admin</span>
       </header>
       <div id="view-root" class="view-root"></div>
     </main>
@@ -127,6 +130,6 @@
   <div id="toast-root" class="toast-root" aria-live="polite"></div>
   <div id="modal-root" class="modal-root" hidden></div>
 
-  <script src="/admin/admin.js"></script>
+  <script src="/admin/admin.js?v=4"></script>
 </body>
 </html>

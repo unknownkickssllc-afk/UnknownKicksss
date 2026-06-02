@@ -1,18 +1,5 @@
 require("dotenv").config();
-const bcrypt = require("bcryptjs");
-const data = require("./data");
+const { getAdminPin } = require("./lib/adminAuth");
 
-async function seedAdmin() {
-  const email = String(process.env.ADMIN_EMAIL || "admin@hillwebworks.com")
-    .trim()
-    .toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || "UnknownKicksAdmin2026!";
-  const hash = bcrypt.hashSync(password, 10);
-  await data.upsertAdmin(email, hash);
-  console.log(`Admin ready: ${email}`);
-}
-
-seedAdmin().catch((e) => {
-  console.error("Failed to seed admin:", e.message);
-  process.exit(1);
-});
+console.log(`Admin access code is set via ADMIN_PIN (current: ${getAdminPin()}).`);
+console.log("Open /admin/ and enter the 4-digit code to sign in.");

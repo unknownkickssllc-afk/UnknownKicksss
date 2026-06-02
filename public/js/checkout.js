@@ -4,11 +4,11 @@
   const subtotalEl = document.getElementById("checkout-subtotal");
   const totalEl = document.getElementById("checkout-total");
   const countEl = document.getElementById("checkout-item-count");
-  const payBtnAmountEl = document.getElementById("pay-btn-amount");
+  const payBtnAmountEls = document.querySelectorAll(".pay-btn-amount");
   const errorEl = document.getElementById("checkout-error");
   const referralInput = document.getElementById("referral-code");
   const referralStatus = document.getElementById("referral-status");
-  const payBtn = document.getElementById("pay-btn");
+  const payBtns = document.querySelectorAll("[data-checkout-pay]");
   const billingSameInput = form.querySelector('[name="billingSame"]');
   const billingFields = document.getElementById("billing-fields");
   const paymentLoading = document.getElementById("payment-loading");
@@ -74,6 +74,26 @@
     return `$${amount.toFixed(2)}`;
   }
 
+  function setPayButtonsDisabled(disabled) {
+    payBtns.forEach((btn) => {
+      btn.disabled = disabled;
+    });
+  }
+
+  function setPayButtonsProcessing() {
+    payBtns.forEach((btn) => {
+      btn.textContent = "Processing…";
+    });
+  }
+
+  function resetPayButtons() {
+    const label = formatMoney(subtotal());
+    payBtns.forEach((btn) => {
+      btn.disabled = false;
+      btn.innerHTML = `Place order — <span class="pay-btn-amount">${label}</span>`;
+    });
+  }
+
   function showPaymentError(message) {
     paymentError.textContent = message;
     paymentError.hidden = false;
@@ -104,7 +124,9 @@
     const formatted = formatMoney(total);
     subtotalEl.textContent = formatted;
     totalEl.textContent = formatted;
-    payBtnAmountEl.textContent = formatted;
+    payBtnAmountEls.forEach((el) => {
+      el.textContent = formatted;
+    });
     countEl.textContent = String(count);
   }
 
@@ -226,8 +248,8 @@
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errorEl.hidden = true;
-    payBtn.disabled = true;
-    payBtn.textContent = "Processing…";
+    setPayButtonsDisabled(true);
+    setPayButtonsProcessing();
 
     const fd = new FormData(form);
     const payload = buildPayload(fd);
@@ -235,8 +257,7 @@
     if (payload.referralCode && referralValid === false) {
       errorEl.textContent = "Fix or remove the invalid referral code.";
       errorEl.hidden = false;
-      payBtn.disabled = false;
-      payBtn.innerHTML = `Place order — <span id="pay-btn-amount">${formatMoney(subtotal())}</span>`;
+      resetPayButtons();
       return;
     }
 
@@ -291,8 +312,7 @@
     } catch (err) {
       errorEl.textContent = err.message;
       errorEl.hidden = false;
-      payBtn.disabled = false;
-      payBtn.innerHTML = `Place order — <span id="pay-btn-amount">${formatMoney(subtotal())}</span>`;
+      resetPayButtons();
     }
   });
 

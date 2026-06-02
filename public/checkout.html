@@ -179,6 +179,13 @@
         </section>
 
         <p id="checkout-error" class="error-msg checkout-error" hidden></p>
+
+        <div class="checkout-form__footer">
+          <button type="submit" class="btn-cart checkout-form__submit" id="pay-btn-bottom" data-checkout-pay>
+            Place order — <span class="pay-btn-amount">$0.00</span>
+          </button>
+          <p class="checkout-note">Secure checkout by Stripe. Ships to the address in step 1 only.</p>
+        </div>
       </form>
 
       <aside class="checkout-order">
@@ -193,10 +200,6 @@
           <span>Total</span>
           <strong id="checkout-total">$0.00</strong>
         </div>
-        <button type="submit" form="checkout-form" class="btn-cart checkout-order__submit" id="pay-btn">
-          Place order — <span id="pay-btn-amount">$0.00</span>
-        </button>
-        <p class="checkout-note">Secure checkout by Stripe. Ships to the address in step 1 only.</p>
       </aside>
     </div>
   </main>
