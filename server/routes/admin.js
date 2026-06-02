@@ -6,13 +6,18 @@ const { v4: uuidv4 } = require("uuid");
 const data = require("../data");
 const { authenticateAdmin } = require("../lib/adminAuth");
 const { requireAdmin } = require("../middleware/auth");
+const {
+  deleteRemoteUpload,
+  uploadPublicImage,
+  usesRemoteStorage,
+} = require("../lib/uploadStorage");
 
 const router = express.Router();
 
 const uploadsRoot = path.join(__dirname, "..", "..", "public", "uploads");
 if (!fs.existsSync(uploadsRoot)) fs.mkdirSync(uploadsRoot, { recursive: true });
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(uploadsRoot, "products");
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -22,7 +27,17 @@ const storage = multer.diskStorage({
     cb(null, `${uuidv4()}${path.extname(file.originalname) || ".jpg"}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
+const upload = multer({
+  storage: usesRemoteStorage() ? multer.memoryStorage() : diskStorage,
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
+async function persistUpload(file, folder = "products") {
+  if (usesRemoteStorage()) {
+    return uploadPublicImage(file, folder);
+  }
+  return `/uploads/products/${file.filename}`;
+}
 
 router.post("/login", async (req, res) => {
   try {
@@ -95,7 +110,7 @@ router.delete("/products/:id", requireAdmin, async (req, res) => {
 
 router.post("/products/:id/images", requireAdmin, upload.single("image"), async (req, res) => {
   try {
-    const url = `/uploads/products/${req.file.filename}`;
+    const url = await persistUpload(req.file);
     const img = await data.addProductImage(
       req.params.id,
       url,
@@ -114,6 +129,8 @@ router.delete("/product-images/:id", requireAdmin, async (req, res) => {
     if (img?.url?.startsWith("/uploads/")) {
       const fp = path.join(__dirname, "..", "..", img.url.replace(/^\//, ""));
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    } else if (img?.url) {
+      await deleteRemoteUpload(img.url);
     }
     res.json({ success: true });
   } catch (e) {
@@ -186,7 +203,7 @@ router.put("/content", requireAdmin, async (req, res) => {
 
 router.post("/content/upload", requireAdmin, upload.single("image"), async (req, res) => {
   try {
-    const url = `/uploads/products/${req.file.filename}`;
+    const url = await persistUpload(req.file, "site");
     res.json({ url });
   } catch (e) {
     res.status(400).json({ error: e.message });

@@ -1170,8 +1170,11 @@
       const fd = new FormData(e.target);
       const r = await api("/content/upload", { method: "POST", body: fd });
       contentUploadPreview.clear();
-      document.getElementById("upload-result").textContent = `Uploaded! Copy this link: ${r.url}`;
-      toast("Image uploaded — copy the link below");
+      const heroInput = document.querySelector('[name="hero_image"]');
+      if (heroInput) heroInput.value = r.url;
+      document.getElementById("upload-result").textContent =
+        "Uploaded! The hero image field was updated — click Save changes.";
+      toast("Image uploaded — save homepage to apply");
     };
   }
 
