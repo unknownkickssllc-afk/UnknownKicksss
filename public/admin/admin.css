@@ -593,6 +593,64 @@ body {
   color: #333;
 }
 
+.field-required {
+  color: var(--admin-error);
+  font-weight: 700;
+}
+
+.variant-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.variant-card {
+  padding: 1rem;
+  background: #fafafa;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+}
+
+.variant-card__actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.add-variant-panel {
+  margin-top: 1.25rem;
+  padding: 1.1rem 1rem;
+  background: #fff;
+  border: 2px dashed var(--admin-border);
+  border-radius: 10px;
+}
+
+.add-variant-panel__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.add-variant-submit {
+  min-height: 2.85rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  gap: 0.5rem;
+}
+
+.add-variant-submit__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+
 .form-field .hint,
 .field-hint {
   display: block;
@@ -1594,16 +1652,9 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; colo
     margin-bottom: 0.25rem;
   }
 
-  .data-table--stack.variant-table td {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: left;
-  }
-
-  .data-table--stack.variant-table .variant-field,
-  .data-table--stack.variant-table .variant-field--stock {
-    max-width: none;
-    width: 100%;
+  .variant-card__actions .btn {
+    min-height: 2.75rem;
+    font-size: 0.88rem;
   }
 
   .btn-group--stack {

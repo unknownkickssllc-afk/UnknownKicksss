@@ -90,6 +90,68 @@
       .replace(/-+/g, "-");
   }
 
+  function reqLabel(text) {
+    return `${text} <span class="field-required" aria-hidden="true">*</span>`;
+  }
+
+  function categoryOptions(categories, selectedId) {
+    const selected = selectedId != null ? String(selectedId) : "";
+    return (
+      `<option value="" disabled${selected ? "" : " selected"}>Select a category</option>` +
+      categories
+        .map(
+          (c) =>
+            `<option value="${c.id}"${String(c.id) === selected ? " selected" : ""}>${esc(c.name)}</option>`
+        )
+        .join("")
+    );
+  }
+
+  function validateProductForm(fd, { requireSlug = false, requireShipping = false } = {}) {
+    if (!String(fd.get("name") || "").trim()) return "Product name is required";
+    if (!fd.get("category_id")) return "Category is required";
+    const price = parseFloat(fd.get("price"));
+    if (!Number.isFinite(price) || price < 0) return "Enter a valid price";
+    if (!String(fd.get("description") || "").trim()) return "Description is required";
+    if (requireSlug && !String(fd.get("slug") || "").trim()) return "Product URL slug is required";
+    if (requireShipping && !String(fd.get("shipping_info") || "").trim()) {
+      return "Shipping info is required";
+    }
+    return null;
+  }
+
+  function renderVariantEditor(variants) {
+    if (!variants.length) {
+      return `<p class="field-hint">No sizes yet — add at least one size and color below.</p>`;
+    }
+
+    const card = (v) => `
+      <article class="variant-card" data-variant-id="${v.id}" data-sku="${esc(v.sku || "")}">
+        <div class="form-field">
+          <label>${reqLabel("Size")}</label>
+          <input class="variant-field" name="size" value="${esc(v.size)}" required />
+        </div>
+        <div class="form-field">
+          <label>${reqLabel("Color")}</label>
+          <input class="variant-field" name="color" value="${esc(v.color)}" required />
+        </div>
+        <div class="form-field">
+          <label>${reqLabel("In stock")}</label>
+          <input class="variant-field" name="stock" type="number" min="0" value="${v.stock}" required />
+        </div>
+        <div class="variant-card__actions">
+          <button type="button" class="btn secondary btn--block" data-save-var="${v.id}">Save size</button>
+          <button type="button" class="btn danger btn--block" data-del-var="${v.id}">Remove size</button>
+        </div>
+      </article>`;
+
+    return `
+      <div class="variant-list">${variants.map(card).join("")}</div>
+      <div class="form-actions form-actions--stack">
+        <button type="button" class="btn secondary btn--block" id="save-all-variants">Save all sizes &amp; stock</button>
+      </div>`;
+  }
+
   function money(n) {
     return `$${Number(n || 0).toFixed(2)}`;
   }
@@ -406,9 +468,6 @@
       api("/categories"),
     ]);
 
-    const catOpts = categories
-      .map((c) => `<option value="${c.id}">${esc(c.name)}</option>`)
-      .join("");
     const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
     viewRoot.innerHTML = `
@@ -426,25 +485,24 @@
         </div>
         <form id="add-product-form" class="form-grid">
           <div class="form-field">
-            <label for="add-name">Product name</label>
+            <label for="add-name">${reqLabel("Product name")}</label>
             <input id="add-name" name="name" required placeholder="e.g. UK Valley Dreams Tee" />
           </div>
           <div class="form-row">
             <div class="form-field">
-              <label for="add-price">Price</label>
+              <label for="add-price">${reqLabel("Price")}</label>
               <input id="add-price" name="price" type="number" step="0.01" min="0" required placeholder="55.00" />
             </div>
             <div class="form-field">
-              <label for="add-category">Category</label>
-              <select id="add-category" name="category_id">
-                <option value="">Choose a category</option>
-                ${catOpts}
+              <label for="add-category">${reqLabel("Category")}</label>
+              <select id="add-category" name="category_id" required>
+                ${categoryOptions(categories)}
               </select>
             </div>
           </div>
           <div class="form-field">
-            <label for="add-description">Description</label>
-            <textarea id="add-description" name="description" placeholder="Tell customers about this item…"></textarea>
+            <label for="add-description">${reqLabel("Description")}</label>
+            <textarea id="add-description" name="description" required placeholder="Tell customers about this item…"></textarea>
           </div>
           <div class="switch-field">
             <input type="checkbox" id="add-sold-out" name="sold_out" />
@@ -531,6 +589,11 @@
     document.getElementById("add-product-form").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const err = validateProductForm(fd);
+      if (err) {
+        toast(err, "error");
+        return;
+      }
       const name = String(fd.get("name") || "").trim();
       await api("/products", {
         method: "POST",
@@ -538,8 +601,8 @@
           name,
           slug: slugify(name),
           price: parseFloat(fd.get("price")),
-          category_id: fd.get("category_id") || null,
-          description: fd.get("description"),
+          category_id: fd.get("category_id"),
+          description: String(fd.get("description") || "").trim(),
           sold_out: fd.get("sold_out") === "on",
         },
       });
@@ -559,46 +622,54 @@
           toast("Product deleted");
           renderProducts();
         }
-        if (edit) openProductEditor(products.find((p) => p.id == edit.dataset.edit));
+        if (edit) void openProductEditor(products.find((p) => p.id == edit.dataset.edit));
       };
     }
   }
 
   async function openProductEditor(p) {
+    const categories = await api("/categories");
     openModal(
       esc(p.name),
       "Update details, photos, sizes, and stock",
       `
       <form id="edit-product-form" class="form-grid">
         <div class="form-field">
-          <label>Product name</label>
+          <label>${reqLabel("Product name")}</label>
           <input name="name" value="${esc(p.name)}" required />
+        </div>
+        <div class="form-field">
+          <label>${reqLabel("Category")}</label>
+          <select name="category_id" required>
+            ${categoryOptions(categories, p.category_id)}
+          </select>
+          <span class="field-hint">Controls which filter this item appears under (Streetwear, Footwear, Accessories).</span>
         </div>
         <div class="form-row">
           <div class="form-field">
-            <label>Price</label>
+            <label>${reqLabel("Price")}</label>
             <input name="price" type="number" step="0.01" min="0" value="${p.price}" required />
           </div>
           <div class="form-field">
-            <label>Web address slug</label>
+            <label>${reqLabel("Web address slug")}</label>
             <input name="slug" value="${esc(p.slug)}" required />
             <span class="field-hint">Used in the product link — usually auto-generated from the name.</span>
           </div>
         </div>
         <div class="form-field">
-          <label>Description</label>
-          <textarea name="description">${esc(p.description)}</textarea>
+          <label>${reqLabel("Description")}</label>
+          <textarea name="description" required>${esc(p.description)}</textarea>
         </div>
         <div class="form-field">
-          <label>Shipping info</label>
-          <textarea name="shipping_info" placeholder="Delivery times, return policy…">${esc(p.shipping_info || "")}</textarea>
+          <label>${reqLabel("Shipping info")}</label>
+          <textarea name="shipping_info" required placeholder="Delivery times, return policy…">${esc(p.shipping_info || "")}</textarea>
         </div>
         <div class="switch-field">
           <input type="checkbox" id="edit-sold-out" name="sold_out" ${p.sold_out ? "checked" : ""} />
           <label for="edit-sold-out">Mark as sold out</label>
         </div>
-        <div class="form-actions">
-          <button type="submit" class="btn">Save changes</button>
+        <div class="form-actions form-actions--stack">
+          <button type="submit" class="btn btn--block">Save changes</button>
         </div>
       </form>
 
@@ -633,53 +704,34 @@
 
       <div class="modal-section">
         <h3 class="modal-section__title">Sizes &amp; stock</h3>
-        <p class="field-hint">Change size, color, or quantity below, then click Save.</p>
-        ${
-          p.variants.length
-            ? `<div class="table-wrap table-wrap--stack">
-          <table class="data-table data-table--stack variant-table">
-            <thead><tr><th>Size</th><th>Color</th><th>In stock</th><th></th></tr></thead>
-            <tbody id="variant-rows">${p.variants
-              .map(
-                (v) => `<tr data-variant-id="${v.id}" data-sku="${esc(v.sku || "")}">
-              <td data-label="Size"><input class="variant-field" name="size" value="${esc(v.size)}" aria-label="Size" required /></td>
-              <td data-label="Color"><input class="variant-field" name="color" value="${esc(v.color)}" aria-label="Color" required /></td>
-              <td data-label="In stock"><input class="variant-field variant-field--stock" name="stock" type="number" min="0" value="${v.stock}" aria-label="Stock" required /></td>
-              <td data-label="Actions">
-                <div class="btn-group btn-group--stack">
-                  <button type="button" class="btn secondary sm" data-save-var="${v.id}">Save</button>
-                  <button type="button" class="btn danger sm" data-del-var="${v.id}">Remove</button>
-                </div>
-              </td>
-            </tr>`
-              )
-              .join("")}</tbody>
-          </table>
+        <p class="field-hint">All size fields are required. Tap Save on each row or use Save all.</p>
+        ${renderVariantEditor(p.variants)}
+        <div class="add-variant-panel">
+          <h4 class="add-variant-panel__title">Add a new size</h4>
+          <p class="field-hint">Enter size, color, and stock below, then tap the button to add it to this product.</p>
+          <form id="add-variant-form" class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label>${reqLabel("Size")}</label>
+                <input name="size" required placeholder="e.g. M, L, XL" />
+              </div>
+              <div class="form-field">
+                <label>${reqLabel("Color")}</label>
+                <input name="color" required placeholder="e.g. Black, Cream" />
+              </div>
+              <div class="form-field">
+                <label>${reqLabel("In stock")}</label>
+                <input name="stock" type="number" min="0" value="10" required />
+              </div>
+            </div>
+            <div class="form-actions form-actions--stack">
+              <button type="submit" class="btn btn--block add-variant-submit">
+                <span class="add-variant-submit__icon" aria-hidden="true">+</span>
+                Add size to product
+              </button>
+            </div>
+          </form>
         </div>
-        <div class="form-actions">
-          <button type="button" class="btn secondary" id="save-all-variants">Save all sizes &amp; stock</button>
-        </div>`
-            : `<p class="field-hint">No sizes added yet.</p>`
-        }
-        <form id="add-variant-form" class="form-grid">
-          <div class="form-row">
-            <div class="form-field">
-              <label>Size</label>
-              <input name="size" required placeholder="M" />
-            </div>
-            <div class="form-field">
-              <label>Color</label>
-              <input name="color" required placeholder="Black" />
-            </div>
-            <div class="form-field">
-              <label>How many in stock?</label>
-              <input name="stock" type="number" min="0" value="10" required />
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn secondary">Add size</button>
-          </div>
-        </form>
       </div>`
     );
 
@@ -689,16 +741,21 @@
     document.getElementById("edit-product-form").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const err = validateProductForm(fd, { requireSlug: true, requireShipping: true });
+      if (err) {
+        toast(err, "error");
+        return;
+      }
       await api(`/products/${p.id}`, {
         method: "PUT",
         body: {
-          name: fd.get("name"),
-          slug: fd.get("slug"),
+          name: String(fd.get("name") || "").trim(),
+          slug: String(fd.get("slug") || "").trim(),
           price: parseFloat(fd.get("price")),
-          description: fd.get("description"),
-          shipping_info: fd.get("shipping_info"),
+          description: String(fd.get("description") || "").trim(),
+          shipping_info: String(fd.get("shipping_info") || "").trim(),
           sold_out: fd.get("sold_out") === "on",
-          category_id: p.category_id,
+          category_id: fd.get("category_id"),
         },
       });
       toast("Product saved!");
@@ -716,7 +773,7 @@
       toast("Photo uploaded!");
       const updated = (await api("/products")).find((x) => x.id === p.id);
       closeModal();
-      if (updated) openProductEditor(updated);
+      if (updated) void openProductEditor(updated);
     };
 
     document.getElementById("add-variant-form").onsubmit = async (e) => {
@@ -733,7 +790,7 @@
       toast("Size added!");
       const updated = (await api("/products")).find((x) => x.id === p.id);
       closeModal();
-      if (updated) openProductEditor(updated);
+      if (updated) void openProductEditor(updated);
     };
 
     async function saveVariantRow(row) {
@@ -758,7 +815,7 @@
     async function reloadProductEditor() {
       const updated = (await api("/products")).find((x) => x.id === p.id);
       closeModal();
-      if (updated) openProductEditor(updated);
+      if (updated) void openProductEditor(updated);
       renderProducts();
     }
 

@@ -11,6 +11,7 @@ const {
   uploadPublicImage,
   usesRemoteStorage,
 } = require("../lib/uploadStorage");
+const { validateProductPayload } = require("../lib/validateProduct");
 
 const router = express.Router();
 
@@ -74,12 +75,17 @@ router.get("/products", requireAdmin, async (req, res) => {
 router.post("/products", requireAdmin, async (req, res) => {
   try {
     const { name, slug, description, price, category_id, sold_out, shipping_info } = req.body;
+    const err = validateProductPayload(
+      { name, description, price, category_id },
+      { isCreate: true }
+    );
+    if (err) return res.status(400).json({ error: err });
     const p = await data.createProduct({
-      name,
-      slug,
-      description: description || "",
+      name: String(name).trim(),
+      slug: String(slug || "").trim() || String(name).trim().toLowerCase().replace(/\s+/g, "-"),
+      description: String(description).trim(),
       price,
-      category_id: category_id || null,
+      category_id,
       sold_out: !!sold_out,
       shipping_info: shipping_info || "",
     });
@@ -91,7 +97,16 @@ router.post("/products", requireAdmin, async (req, res) => {
 
 router.put("/products/:id", requireAdmin, async (req, res) => {
   try {
-    await data.updateProduct(req.params.id, req.body);
+    const err = validateProductPayload(req.body);
+    if (err) return res.status(400).json({ error: err });
+    await data.updateProduct(req.params.id, {
+      ...req.body,
+      name: String(req.body.name || "").trim(),
+      slug: String(req.body.slug || "").trim(),
+      description: String(req.body.description ?? "").trim(),
+      shipping_info: String(req.body.shipping_info ?? "").trim(),
+      category_id: req.body.category_id,
+    });
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

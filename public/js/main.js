@@ -50,7 +50,7 @@
           b.classList.toggle("is-active", b === btn);
         });
         activeCategory = btn.dataset.cat || "";
-        renderGrid();
+        loadProducts();
       });
     } catch (e) {
       console.warn(e);
@@ -59,7 +59,9 @@
 
   async function loadProducts() {
     try {
-      const path = activeCategory ? `/products?category=${activeCategory}` : "/products";
+      const path = activeCategory
+        ? `/products?category=${encodeURIComponent(activeCategory)}`
+        : "/products";
       allProducts = await UK_API.get(path);
       renderGrid();
     } catch (e) {
@@ -70,7 +72,7 @@
   function renderGrid() {
     if (!grid) return;
     const list = activeCategory
-      ? allProducts
+      ? allProducts.filter((p) => p.category?.slug === activeCategory)
       : allProducts;
     const countEl = document.getElementById("arrivals-count");
     if (countEl) countEl.textContent = `/ ${list.length}`;
