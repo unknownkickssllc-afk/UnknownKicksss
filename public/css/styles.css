@@ -276,28 +276,26 @@ img {
   padding: calc(var(--header-h) + 2.5rem) clamp(1.25rem, 4vw, 3rem) 5rem;
 }
 
-.arrivals__shop-bar {
-  margin-bottom: 2.5rem;
-}
-
 .arrivals__head {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .arrivals__title {
-  font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   margin: 0;
+  line-height: 1.1;
 }
 
 .arrivals__count {
   font-weight: 400;
   opacity: 0.5;
+  font-size: 0.65em;
 }
 
 .arrivals__sub {
-  font-size: 10px;
+  font-size: clamp(11px, 1.5vw, 13px);
   letter-spacing: 0.06em;
   text-transform: none;
   color: var(--muted);
