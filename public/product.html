@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <title>Product — Unknown Kicks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header site-header--dark" id="site-header">
+    <nav class="nav-left" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="index.html#catalog">Catalog</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+    <a href="index.html" class="brand-logo" aria-label="Unknown Kicks home">
+      <img src="logo.jpg" alt="Unknown Kicks" width="120" height="28" />
+    </a>
+    <div class="nav-right">
+      <a href="cart.html" data-cart-count>Cart (0)</a>
+    </div>
+  </header>
+
+  <main class="product-page">
+    <div class="product-layout product-layout--pdp" id="product-layout">
+      <aside class="product-info product-layout__side">
+        <h1 class="product-info__title" id="product-title"></h1>
+        <p class="product-info__price" id="product-price"></p>
+
+        <div class="accordion" id="product-accordion">
+          <div class="accordion__item is-open" data-accordion>
+            <button type="button" class="accordion__trigger" aria-expanded="true">
+              <span>Product Details</span>
+              <span class="accordion__icon" aria-hidden="true">+</span>
+            </button>
+            <div class="accordion__panel">
+              <div class="accordion__body" id="product-details"></div>
+            </div>
+          </div>
+          <div class="accordion__item" data-accordion>
+            <button type="button" class="accordion__trigger" aria-expanded="false">
+              <span>Size Chart</span>
+              <span class="accordion__icon" aria-hidden="true">+</span>
+            </button>
+            <div class="accordion__panel">
+              <div class="accordion__body" id="product-size-chart"></div>
+            </div>
+          </div>
+          <div class="accordion__item" data-accordion>
+            <button type="button" class="accordion__trigger" aria-expanded="false">
+              <span>Shipping &amp; Returns</span>
+              <span class="accordion__icon" aria-hidden="true">+</span>
+            </button>
+            <div class="accordion__panel">
+              <div class="accordion__body" id="product-shipping"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="product-gallery" id="product-gallery" aria-label="Product images — scroll for more views"></div>
+
+      <aside class="product-buy product-layout__side">
+        <div class="product-buy__sheet">
+          <p class="stock-status" id="stock-status"></p>
+          <div class="product-buy__pickers">
+            <div class="product-buy__group">
+              <div class="picker-label">Color <span class="picker-value" id="color-value" hidden></span></div>
+              <div class="color-picker" id="color-picker" role="group" aria-label="Select color"></div>
+            </div>
+            <div class="product-buy__group">
+              <div class="picker-label">Size <span class="picker-value" id="size-value" hidden></span></div>
+              <div class="size-picker" id="size-picker" role="group" aria-label="Select size"></div>
+            </div>
+          </div>
+        </div>
+        <div class="product-buy__bar">
+          <button type="button" class="btn-cart btn-cart--pdp" id="btn-cart">
+            <span class="btn-cart__label">Add to cart</span>
+            <span class="btn-cart__price" id="btn-cart-price"></span>
+          </button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/product-page.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "unknown-kicks",
+  "version": "1.0.0",
+  "description": "Unknown Kicks e-commerce with barber referral system",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "vercel-build": "echo \"No build step\"",
+    "seed": "node server/seed.js",
+    "seed:sqlite": "node server/seed-sqlite.js",
+    "update-hero": "node server/scripts/update-hero.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "stripe": "^17.5.0",
+    "uuid": "^11.0.5"
+  }
+}

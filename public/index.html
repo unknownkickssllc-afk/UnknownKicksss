@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <title>Unknown Kicks — Streetwear</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header site-header--light" id="site-header">
+    <nav class="nav-left" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="#catalog">Catalog</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a href="index.html" class="brand-logo" aria-label="Unknown Kicks home">
+      <img src="logo.jpg" alt="Unknown Kicks" width="120" height="28" />
+    </a>
+    <div class="nav-right">
+      <a href="cart.html" data-cart-count>Cart (0)</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero-pin" id="hero-pin">
+      <section class="hero" id="hero" aria-label="Featured collection">
+        <div class="hero__media" id="hero-media">
+          <picture>
+            <source media="(max-width: 768px)" srcset="mobilehero.png" />
+            <img
+              src="herov1.png"
+              alt="Unknown Kicks — sneakers and streetwear"
+              width="1920"
+              height="1080"
+            />
+          </picture>
+        </div>
+        <div class="hero__shade" aria-hidden="true"></div>
+        <div class="hero__content">
+          <h1 class="hero__tag" id="hero-tag">SS2026 OUT NOW</h1>
+          <a class="btn-ghost" href="#catalog">
+            Shop now
+            <svg viewBox="0 0 18 2" aria-hidden="true"><line x1="0" y1="1" x2="18" y2="1"/></svg>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <div class="arrivals-wrap" id="arrivals-wrap">
+      <section class="arrivals" id="catalog" aria-labelledby="arrivals-title">
+        <div class="arrivals__shop-bar reveal">
+          <a class="btn-ghost" href="#catalog" style="color: var(--fg); border-color: var(--fg);">
+            Shop now
+            <svg viewBox="0 0 18 2" aria-hidden="true"><line x1="0" y1="1" x2="18" y2="1"/></svg>
+          </a>
+        </div>
+        <div class="category-filters reveal" id="category-filters"></div>
+        <header class="arrivals__head reveal">
+          <h2 class="arrivals__title" id="arrivals-title">
+            New Arrivals <span class="arrivals__count" id="arrivals-count">/ 0</span>
+          </h2>
+        </header>
+        <p class="arrivals__sub reveal" id="arrivals-sub">
+          Available worldwide. Limited drops — join the list for early access.
+        </p>
+        <div class="product-grid" id="product-grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer" id="contact">
+    <div>
+      <a href="#">Terms</a>
+      <span aria-hidden="true"> · </span>
+      <a href="#">Shipping</a>
+      <span aria-hidden="true"> · </span>
+      <a href="#">Refund</a>
+      <span aria-hidden="true"> · </span>
+      <a href="#">Legal</a>
+    </div>
+    <div>© Unknown Kicks 2026</div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

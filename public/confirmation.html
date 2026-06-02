@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <title>Order confirmed — Unknown Kicks</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-inner">
+  <header class="site-header site-header--dark">
+    <a href="index.html" class="brand-logo" style="grid-column:1/-1;justify-self:center"><img src="logo.jpg" alt="Unknown Kicks" /></a>
+  </header>
+  <main class="page-main confirm-page">
+    <h1 class="page-title">Order confirmed</h1>
+    <div id="confirm-loading">Loading order…</div>
+    <div id="confirm-body" hidden>
+      <p class="confirm-lead">Thank you. Your order <strong id="order-number"></strong> has been placed.</p>
+      <div class="confirm-grid" id="confirm-details"></div>
+      <a href="index.html" class="btn-ghost" style="color:var(--fg);border-color:var(--fg);margin-top:2rem">Continue shopping</a>
+    </div>
+    <p id="confirm-error" class="error-msg" hidden></p>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/confirmation.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+/data/
+.env
+*.db
+.vercel
+
+# Admin uploads (ephemeral on Vercel — use product images in public/products for catalog)
+public/uploads/*
+!public/uploads/.gitkeep

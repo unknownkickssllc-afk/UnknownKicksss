@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <title>Checkout — Unknown Kicks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-inner">
+  <header class="site-header site-header--dark">
+    <nav class="nav-left"><a href="cart.html">← Cart</a></nav>
+    <a href="index.html" class="brand-logo"><img src="logo.jpg" alt="Unknown Kicks" /></a>
+    <div class="nav-right"></div>
+  </header>
+
+  <main class="page-main checkout-layout">
+    <h1 class="page-title">Checkout</h1>
+    <form id="checkout-form" class="checkout-form">
+      <section class="form-section">
+        <h2>Customer</h2>
+        <label>Full name <input type="text" name="name" required /></label>
+        <label>Email <input type="email" name="email" required /></label>
+        <label>Phone <input type="tel" name="phone" required /></label>
+      </section>
+      <section class="form-section">
+        <h2>Shipping</h2>
+        <label>Address <input type="text" name="line1" required /></label>
+        <label>Apt / Suite <input type="text" name="line2" /></label>
+        <div class="form-row">
+          <label>City <input type="text" name="city" required /></label>
+          <label>State <input type="text" name="state" required /></label>
+        </div>
+        <div class="form-row">
+          <label>ZIP <input type="text" name="zip" required /></label>
+          <label>Country <input type="text" name="country" value="US" required /></label>
+        </div>
+      </section>
+      <section class="form-section referral-section">
+        <h2>Barber referral code <span class="optional">(optional)</span></h2>
+        <label>
+          Code
+          <input type="text" name="referralCode" id="referral-code" placeholder="e.g. BARBER-DEMO-001" />
+        </label>
+        <p id="referral-status" class="referral-status" aria-live="polite"></p>
+      </section>
+      <p class="checkout-total">Order total: <strong id="checkout-total">$0.00</strong></p>
+      <p id="checkout-error" class="error-msg" hidden></p>
+      <button type="submit" class="btn-cart" id="pay-btn">Pay securely</button>
+      <p class="checkout-note">Payments processed securely via Stripe. Referral codes are single-use.</p>
+    </form>
+    <aside class="checkout-summary">
+      <h2>Order summary</h2>
+      <ul id="checkout-items"></ul>
+    </aside>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/checkout.js"></script>
+</body>
+</html>

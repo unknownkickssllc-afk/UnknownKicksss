@@ -1,0 +1,92 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: #111;
+  background: #f7f7f7;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+.login-box {
+  background: #fff;
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+  border: 1px solid #e5e5e5;
+}
+.login-box h1 { font-size: 1.1rem; margin: 0 0 1.5rem; }
+.login-box label { display: block; margin-bottom: 1rem; font-size: 12px; }
+.login-box input {
+  display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; border: 1px solid #ddd;
+}
+.login-box button {
+  width: 100%; padding: 0.65rem; background: #111; color: #fff; border: none; cursor: pointer;
+}
+.error { color: #c00; font-size: 13px; }
+
+.app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar {
+  background: #111; color: #fff; padding: 1.25rem; display: flex; flex-direction: column;
+}
+.sidebar-brand { font-weight: 700; margin-bottom: 2rem; letter-spacing: 0.05em; }
+.nav-item {
+  display: block; width: 100%; text-align: left; padding: 0.6rem 0.75rem;
+  background: none; border: none; color: #aaa; cursor: pointer; font-size: 13px; border-radius: 4px;
+}
+.nav-item:hover, .nav-item.is-active { background: #222; color: #fff; }
+.logout-btn {
+  margin-top: auto; background: none; border: 1px solid #444; color: #ccc;
+  padding: 0.5rem; cursor: pointer; font-size: 12px;
+}
+.main { padding: 1.5rem 2rem; overflow: auto; }
+.main-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 1.5rem; border-bottom: 1px solid #e5e5e5; padding-bottom: 1rem;
+}
+.main-header h1 { margin: 0; font-size: 1.35rem; }
+.muted { color: #888; font-size: 13px; }
+.view-root { background: #fff; border: 1px solid #e5e5e5; padding: 1.25rem; min-height: 400px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.card { background: #fafafa; border: 1px solid #eee; padding: 1rem; }
+.card strong { display: block; font-size: 1.5rem; margin-top: 0.25rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { border-bottom: 1px solid #eee; padding: 0.6rem 0.5rem; text-align: left; vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; color: #666; }
+
+.btn {
+  padding: 0.4rem 0.75rem; border: 1px solid #111; background: #111; color: #fff;
+  cursor: pointer; font-size: 12px; margin-right: 0.35rem;
+}
+.btn.secondary { background: #fff; color: #111; }
+.btn.danger { border-color: #a32a2a; background: #a32a2a; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.form-grid { display: grid; gap: 0.75rem; max-width: 560px; }
+.form-grid label { font-size: 12px; color: #555; }
+.form-grid input, .form-grid textarea, .form-grid select {
+  display: block; width: 100%; padding: 0.5rem; border: 1px solid #ddd; margin-top: 0.2rem;
+}
+.form-grid textarea { min-height: 80px; }
+
+.panel { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #eee; }
+.panel h2 { font-size: 1rem; margin: 0 0 1rem; }
+.badge { display: inline-block; padding: 0.15rem 0.45rem; font-size: 11px; background: #eee; border-radius: 3px; }
+.badge.paid { background: #d4edda; }
+.badge.unpaid { background: #fff3cd; }
+.badge.used { background: #f8d7da; }
+
+.order-detail { font-size: 13px; line-height: 1.6; }
+.order-detail dt { font-weight: 600; margin-top: 0.75rem; }
+.barber-detail { margin-top: 1rem; padding: 1rem; background: #fafafa; border: 1px solid #eee; }
+
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
+}

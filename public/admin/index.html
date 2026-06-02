@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <title>Admin — Unknown Kicks</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div id="login-screen" class="login-screen">
+    <form id="login-form" class="login-box">
+      <h1>Unknown Kicks Admin</h1>
+      <label>Email <input type="email" name="email" required autocomplete="username" /></label>
+      <label>Password <input type="password" name="password" required autocomplete="current-password" /></label>
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">UK Admin</div>
+      <nav>
+        <button type="button" data-view="overview" class="nav-item is-active">Overview</button>
+        <button type="button" data-view="products" class="nav-item">Products</button>
+        <button type="button" data-view="orders" class="nav-item">Orders</button>
+        <button type="button" data-view="barbers" class="nav-item">Barbers &amp; Referrals</button>
+        <button type="button" data-view="content" class="nav-item">Website Content</button>
+      </nav>
+      <button type="button" id="logout-btn" class="logout-btn">Sign out</button>
+    </aside>
+    <main class="main">
+      <header class="main-header">
+        <h1 id="view-title">Overview</h1>
+        <span id="admin-email" class="muted"></span>
+      </header>
+      <div id="view-root" class="view-root"></div>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
