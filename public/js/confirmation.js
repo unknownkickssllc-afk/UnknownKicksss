@@ -14,8 +14,10 @@
     return;
   }
 
-  UK_API.get(`/checkout/order/${encodeURIComponent(orderNumber)}`)
+  UK_API.post(`/checkout/verify/${encodeURIComponent(orderNumber)}`, {})
+    .catch(() => UK_API.get(`/checkout/order/${encodeURIComponent(orderNumber)}`))
     .then((order) => {
+      if (window.UK_CART) UK_CART.clear();
       loading.hidden = true;
       body.hidden = false;
       numEl.textContent = order.order_number;

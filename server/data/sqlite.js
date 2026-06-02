@@ -223,16 +223,18 @@ async function countProducts() {
 }
 
 async function getAdminByEmail(email) {
-  return db.prepare("SELECT * FROM admin_users WHERE email = ?").get(email);
+  const normalized = String(email || "").trim().toLowerCase();
+  return db.prepare("SELECT * FROM admin_users WHERE LOWER(email) = ?").get(normalized);
 }
 
 async function upsertAdmin(email, passwordHash) {
-  const existing = await getAdminByEmail(email);
+  const normalized = String(email || "").trim().toLowerCase();
+  const existing = await getAdminByEmail(normalized);
   if (existing) {
-    db.prepare("UPDATE admin_users SET password_hash = ? WHERE email = ?").run(passwordHash, email);
+    db.prepare("UPDATE admin_users SET password_hash = ? WHERE email = ?").run(passwordHash, existing.email);
     return existing.id;
   }
-  return db.prepare("INSERT INTO admin_users (email, password_hash) VALUES (?, ?)").run(email, passwordHash)
+  return db.prepare("INSERT INTO admin_users (email, password_hash) VALUES (?, ?)").run(normalized, passwordHash)
     .lastInsertRowid;
 }
 

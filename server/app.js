@@ -31,7 +31,7 @@ app.set("trust proxy", 1);
 app.post(
   "/api/webhooks/stripe",
   express.raw({ type: "application/json" }),
-  (req, res) => {
+  async (req, res) => {
     const key = process.env.STRIPE_SECRET_KEY;
     const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!key || !whSecret) return res.status(503).send("Stripe not configured");
@@ -53,9 +53,23 @@ app.post(
       const orderId = session.metadata?.orderId;
       if (orderId) {
         try {
-          fulfillOrder(parseInt(orderId, 10));
+          await fulfillOrder(parseInt(orderId, 10));
         } catch (e) {
           console.error("Fulfillment error:", e);
+          return res.status(500).json({ error: "Fulfillment failed" });
+        }
+      }
+    }
+
+    if (event.type === "payment_intent.succeeded") {
+      const intent = event.data.object;
+      const orderId = intent.metadata?.orderId;
+      if (orderId) {
+        try {
+          await fulfillOrder(parseInt(orderId, 10));
+        } catch (e) {
+          console.error("Fulfillment error:", e);
+          return res.status(500).json({ error: "Fulfillment failed" });
         }
       }
     }
@@ -106,11 +120,13 @@ app.use("/api/admin", adminRoutes);
 app.get("/api/health", async (req, res) => {
   try {
     const count = await data.countProducts();
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
     res.json({
       ok: true,
       products: count,
       database: isSupabaseConfigured() ? "supabase" : "sqlite",
       platform: onVercel ? "vercel" : "node",
+      stripe: Boolean(stripeKey && !stripeKey.includes("...")),
     });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

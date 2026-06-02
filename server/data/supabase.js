@@ -267,19 +267,21 @@ async function countProducts() {
 
 // ─── Admin ───
 async function getAdminByEmail(email) {
-  const { data } = await supabase().from("admin_users").select("*").eq("email", email).maybeSingle();
+  const normalized = String(email || "").trim().toLowerCase();
+  const { data } = await supabase().from("admin_users").select("*").eq("email", normalized).maybeSingle();
   return data;
 }
 
 async function upsertAdmin(email, passwordHash) {
-  const existing = await getAdminByEmail(email);
+  const normalized = String(email || "").trim().toLowerCase();
+  const existing = await getAdminByEmail(normalized);
   if (existing) {
-    await supabase().from("admin_users").update({ password_hash: passwordHash }).eq("email", email);
+    await supabase().from("admin_users").update({ password_hash: passwordHash }).eq("email", existing.email);
     return existing.id;
   }
   const { data } = await supabase()
     .from("admin_users")
-    .insert({ email, password_hash: passwordHash })
+    .insert({ email: normalized, password_hash: passwordHash })
     .select("id")
     .single();
   return data.id;

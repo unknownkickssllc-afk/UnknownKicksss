@@ -26,14 +26,23 @@ const upload = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const password = String(req.body.password || "");
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
     const user = await data.getAdminByEmail(email);
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid email or password" });
     }
     req.session.adminId = user.id;
     req.session.adminEmail = user.email;
-    res.json({ success: true, email: user.email });
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: "Could not start session" });
+      res.json({ success: true, email: user.email });
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

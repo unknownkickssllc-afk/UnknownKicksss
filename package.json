@@ -8,8 +8,10 @@
     "dev": "node server/index.js",
     "vercel-build": "echo \"No build step\"",
     "seed": "node server/seed.js",
+    "seed:admin": "node server/seed-admin.js",
     "seed:sqlite": "node server/seed-sqlite.js",
-    "update-hero": "node server/scripts/update-hero.js"
+    "update-hero": "node server/scripts/update-hero.js",
+    "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe"
   },
   "engines": {
     "node": ">=18"

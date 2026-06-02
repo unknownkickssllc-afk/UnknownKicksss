@@ -25,24 +25,33 @@
   </header>
 
   <main class="page-main">
-    <h1 class="page-title">Cart</h1>
+    <div class="cart-header">
+      <h1 class="page-title">Cart</h1>
+      <a id="cart-continue" class="cart-continue" href="index.html#catalog" hidden>Continue shopping →</a>
+    </div>
+
     <div id="cart-empty" class="cart-empty" hidden>
       <p>Your cart is empty.</p>
       <a class="btn-ghost" href="index.html#catalog" style="color:var(--fg);border-color:var(--fg)">Continue shopping</a>
     </div>
-    <div id="cart-content" hidden>
-      <div class="cart-table-wrap">
-      <table class="cart-table">
-        <thead>
-          <tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th><th></th></tr>
-        </thead>
-        <tbody id="cart-rows"></tbody>
-      </table>
-      </div>
-      <div class="cart-footer">
-        <p class="cart-total">Subtotal: <strong id="cart-subtotal">$0.00</strong></p>
-        <a href="checkout.html" class="btn-cart" style="display:inline-block;text-align:center;max-width:280px">Checkout</a>
-      </div>
+
+    <div id="cart-content" class="cart-layout" hidden>
+      <div class="cart-items" id="cart-items"></div>
+
+      <aside class="cart-summary">
+        <h2 class="cart-summary__title">Order summary</h2>
+        <div class="cart-summary__row">
+          <span>Subtotal (<span id="cart-item-count">0</span> items)</span>
+          <span id="cart-subtotal">$0.00</span>
+        </div>
+        <div class="cart-summary__divider"></div>
+        <div class="cart-summary__row cart-summary__row--total">
+          <span>Total</span>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+        <a href="checkout.html" class="btn-cart cart-summary__checkout">Proceed to checkout</a>
+        <p class="cart-summary__note">Secure checkout powered by Stripe</p>
+      </aside>
     </div>
   </main>
 
