@@ -262,13 +262,24 @@ router.post("/barbers", requireAdmin, async (req, res) => {
 
 router.put("/barbers/:id", requireAdmin, async (req, res) => {
   try {
+    const name = String(req.body.name || "").trim();
+    if (!name) return res.status(400).json({ error: "Name is required" });
     await data.updateBarber(req.params.id, {
-      name: req.body.name,
+      name,
       email: req.body.email,
       phone: req.body.phone,
       commission_rate: req.body.commission_rate,
-      active: req.body.active,
+      active: req.body.active !== false,
     });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete("/barbers/:id", requireAdmin, async (req, res) => {
+  try {
+    await data.deleteBarber(req.params.id);
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

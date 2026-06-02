@@ -1241,6 +1241,16 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.barber-card__actions {
+  flex-shrink: 0;
+}
+
+.barber-customer-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.6;
+}
+
 code, .code-chip {
   font-family: ui-monospace, monospace;
   font-size: 0.82rem;
@@ -1709,6 +1719,19 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; colo
 
   #barber-list {
     gap: 1rem;
+  }
+
+  .barber-detail .card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .barber-card__actions {
+    width: 100%;
+  }
+
+  .barber-card__actions .btn {
+    flex: 1;
   }
 
   .code-chip {

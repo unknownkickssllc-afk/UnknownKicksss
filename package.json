@@ -8,6 +8,7 @@
     "dev": "node server/index.js",
     "vercel-build": "echo \"No build step\"",
     "seed": "node server/seed.js",
+    "clear-demo": "node server/scripts/clear-demo-data.js",
     "seed:admin": "node server/seed-admin.js",
     "seed:sqlite": "node server/seed-sqlite.js",
     "update-hero": "node server/scripts/update-hero.js",

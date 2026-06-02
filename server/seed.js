@@ -84,24 +84,11 @@ async function seed() {
     await data.insertSiteContent(key, value);
   }
 
-  const barber = await data.insertBarber({
-    name: "Demo Barber",
-    email: "barber@example.com",
-    phone: "555-0100",
-    commission_rate: 10,
-    active: true,
-  });
-
-  const codes = ["BARBER-DEMO-001", "BARBER-DEMO-002", "UK-REF-TEST"];
-  for (const code of codes) {
-    await data.insertReferralCode(barber.id, code);
-  }
-
   const count = await data.countProducts();
   console.log("Seed complete.");
   console.log(`Products in database: ${count}`);
   console.log(`Admin access code: ${getAdminPin()} (set ADMIN_PIN in .env to change)`);
-  console.log("Demo referral codes:", codes.join(", "));
+  console.log("To remove test orders/barbers later: npm run clear-demo");
 }
 
 seed().catch((e) => {

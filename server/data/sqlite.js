@@ -262,6 +262,19 @@ async function clearCatalog() {
   db.pragma("foreign_keys = ON");
 }
 
+/** Removes orders, barbers, customers, and referral data. Keeps products, categories, and site content. */
+async function clearDemoData() {
+  db.pragma("foreign_keys = OFF");
+  db.exec("DELETE FROM commissions");
+  db.exec("DELETE FROM order_items");
+  db.exec("DELETE FROM referral_codes");
+  db.exec("DELETE FROM orders");
+  db.exec("DELETE FROM customers");
+  db.exec("DELETE FROM barbers");
+  db.exec("DELETE FROM admin_users");
+  db.pragma("foreign_keys = ON");
+}
+
 async function insertCategory(c) {
   const r = db.prepare("INSERT INTO categories (name, slug, sort_order) VALUES (?, ?, ?)").run(c.name, c.slug, c.sort_order);
   return { id: r.lastInsertRowid, ...c };
@@ -455,21 +468,74 @@ async function updateSiteContent(updates) {
   }
 }
 
+function fetchBarberPerformance(barberId) {
+  const id = Number(barberId) || barberId;
+  const barber = db.prepare("SELECT * FROM barbers WHERE id = ?").get(id);
+  if (!barber) throw new Error("Barber not found");
+
+  const codes = db
+    .prepare(
+      "SELECT id, code, used_at, order_id, created_at FROM referral_codes WHERE barber_id = ? ORDER BY created_at DESC"
+    )
+    .all(id);
+
+  const directOrders = db
+    .prepare(
+      `SELECT * FROM orders WHERE barber_id = ? AND payment_status = 'paid' ORDER BY created_at DESC`
+    )
+    .all(id);
+
+  const linkedIds = [
+    ...new Set(codes.map((c) => c.order_id).filter((oid) => oid != null)),
+  ];
+  let linkedOrders = [];
+  if (linkedIds.length) {
+    const placeholders = linkedIds.map(() => "?").join(",");
+    linkedOrders = db
+      .prepare(
+        `SELECT * FROM orders WHERE id IN (${placeholders}) AND payment_status = 'paid'`
+      )
+      .all(...linkedIds);
+  }
+
+  const ordersById = new Map();
+  for (const o of [...directOrders, ...linkedOrders]) ordersById.set(o.id, o);
+  const orders = [...ordersById.values()].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  const commissions = db
+    .prepare("SELECT * FROM commissions WHERE barber_id = ? ORDER BY created_at DESC")
+    .all(id);
+
+  const customerIds = [...new Set(orders.map((o) => o.customer_id).filter(Boolean))];
+  let customers = [];
+  if (customerIds.length) {
+    const placeholders = customerIds.map(() => "?").join(",");
+    customers = db
+      .prepare(`SELECT * FROM customers WHERE id IN (${placeholders})`)
+      .all(...customerIds);
+  }
+
+  const stats = {
+    total_orders: orders.length,
+    total_sales: orders.reduce((s, o) => s + Number(o.total), 0),
+    unpaid_commissions: commissions
+      .filter((c) => c.status === "unpaid")
+      .reduce((s, c) => s + Number(c.amount), 0),
+    paid_commissions: commissions
+      .filter((c) => c.status === "paid")
+      .reduce((s, c) => s + Number(c.amount), 0),
+  };
+
+  return { barber, referralCodes: codes, orders, commissions, customers, stats };
+}
+
 async function getAllBarbersAdmin() {
   const barbers = db.prepare("SELECT * FROM barbers ORDER BY name").all();
   return barbers.map((b) => {
-    const codes = db
-      .prepare("SELECT id, code, used_at, order_id, created_at FROM referral_codes WHERE barber_id = ? ORDER BY created_at DESC")
-      .all(b.id);
-    const stats = db
-      .prepare(
-        `SELECT COUNT(DISTINCT o.id) as total_orders, COALESCE(SUM(o.total), 0) as total_sales,
-         (SELECT COALESCE(SUM(amount), 0) FROM commissions WHERE barber_id = ? AND status = 'unpaid') as unpaid_commissions,
-         (SELECT COALESCE(SUM(amount), 0) FROM commissions WHERE barber_id = ? AND status = 'paid') as paid_commissions
-         FROM orders o WHERE o.barber_id = ? AND o.payment_status = 'paid'`
-      )
-      .get(b.id, b.id, b.id);
-    return { ...b, referralCodes: codes, stats };
+    const perf = fetchBarberPerformance(b.id);
+    return { ...b, referralCodes: perf.referralCodes, stats: perf.stats };
   });
 }
 
@@ -483,12 +549,24 @@ async function createBarber(body) {
 async function updateBarber(id, body) {
   db.prepare(`UPDATE barbers SET name=?, email=?, phone=?, commission_rate=?, active=? WHERE id=?`).run(
     body.name,
-    body.email,
-    body.phone,
+    body.email || null,
+    body.phone || null,
     body.commission_rate,
     body.active ? 1 : 0,
     id
   );
+}
+
+async function deleteBarber(id) {
+  db.pragma("foreign_keys = OFF");
+  db.prepare("DELETE FROM commissions WHERE barber_id = ?").run(id);
+  db.prepare(
+    "UPDATE orders SET referral_code_id = NULL, barber_id = NULL WHERE barber_id = ?"
+  ).run(id);
+  db.prepare("DELETE FROM referral_codes WHERE barber_id = ?").run(id);
+  const r = db.prepare("DELETE FROM barbers WHERE id = ?").run(id);
+  db.pragma("foreign_keys = ON");
+  if (!r.changes) throw new Error("Barber not found");
 }
 
 async function generateReferralCodes(barberId, count) {
@@ -507,28 +585,17 @@ async function generateReferralCodes(barberId, count) {
 }
 
 async function getBarberDashboard(barberId) {
-  const barber = db.prepare("SELECT * FROM barbers WHERE id = ?").get(barberId);
-  const orders = db
-    .prepare(`SELECT * FROM orders WHERE barber_id = ? AND payment_status = 'paid' ORDER BY created_at DESC`)
-    .all(barberId);
-  const commissions = db
-    .prepare("SELECT * FROM commissions WHERE barber_id = ? ORDER BY created_at DESC")
-    .all(barberId);
-  const customers = db
-    .prepare(
-      `SELECT DISTINCT c.* FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.barber_id = ?`
-    )
-    .all(barberId);
+  const perf = fetchBarberPerformance(barberId);
   return {
-    barber,
-    orders,
-    commissions,
-    customers,
+    barber: perf.barber,
+    orders: perf.orders,
+    commissions: perf.commissions,
+    customers: perf.customers,
     stats: {
-      totalOrders: orders.length,
-      totalSales: orders.reduce((s, o) => s + o.total, 0),
-      unpaidCommissions: commissions.filter((c) => c.status === "unpaid").reduce((s, c) => s + c.amount, 0),
-      paidCommissions: commissions.filter((c) => c.status === "paid").reduce((s, c) => s + c.amount, 0),
+      totalOrders: perf.stats.total_orders,
+      totalSales: perf.stats.total_sales,
+      unpaidCommissions: perf.stats.unpaid_commissions,
+      paidCommissions: perf.stats.paid_commissions,
     },
   };
 }
@@ -562,6 +629,7 @@ module.exports = {
   getAdminByEmail,
   upsertAdmin,
   clearCatalog,
+  clearDemoData,
   insertCategory,
   insertProduct,
   insertProductImage,
@@ -587,6 +655,7 @@ module.exports = {
   getAllBarbersAdmin,
   createBarber,
   updateBarber,
+  deleteBarber,
   generateReferralCodes,
   getBarberDashboard,
   payCommission,

@@ -918,6 +918,82 @@
     };
   }
 
+  function barberBodyFromForm(fd) {
+    return {
+      name: String(fd.get("name") || "").trim(),
+      email: String(fd.get("email") || "").trim(),
+      phone: String(fd.get("phone") || "").trim(),
+      commission_rate: parseFloat(fd.get("commission_rate")) || 10,
+      active: fd.get("active") === "on",
+    };
+  }
+
+  function openBarberEditor(b) {
+    openModal(
+      `Edit barber`,
+      esc(b.name),
+      `
+      <form id="edit-barber-form" class="form-grid">
+        <div class="form-field">
+          <label>Name</label>
+          <input name="name" value="${esc(b.name)}" required />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Email</label>
+            <input name="email" type="email" value="${esc(b.email || "")}" placeholder="optional" />
+          </div>
+          <div class="form-field">
+            <label>Phone</label>
+            <input name="phone" value="${esc(b.phone || "")}" placeholder="optional" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Commission rate (%)</label>
+          <input name="commission_rate" type="number" min="0" max="100" step="0.1" value="${b.commission_rate}" required />
+        </div>
+        <div class="switch-field">
+          <input type="checkbox" id="edit-barber-active" name="active" ${b.active ? "checked" : ""} />
+          <label for="edit-barber-active">Active (can use referral codes at checkout)</label>
+        </div>
+        <div class="form-actions form-actions--stack">
+          <button type="submit" class="btn btn--block">Save changes</button>
+        </div>
+      </form>
+      <div class="form-actions form-actions--stack" style="margin-top:0.5rem">
+        <button type="button" class="btn danger btn--block" id="delete-barber-btn">Remove barber</button>
+      </div>
+      <p class="field-hint">Removing a barber deletes their codes and commission records. Past orders are kept but no longer linked to this barber.</p>`
+    );
+
+    document.getElementById("edit-barber-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const body = barberBodyFromForm(new FormData(e.target));
+      if (!body.name) {
+        toast("Name is required", "error");
+        return;
+      }
+      await api(`/barbers/${b.id}`, { method: "PUT", body });
+      toast("Barber updated");
+      closeModal();
+      renderBarbers();
+    };
+
+    document.getElementById("delete-barber-btn").onclick = async () => {
+      if (
+        !confirm(
+          `Remove "${b.name}"? Their referral codes and commission records will be deleted. Existing orders will stay in the store but won't be tied to this barber.`
+        )
+      ) {
+        return;
+      }
+      await api(`/barbers/${b.id}`, { method: "DELETE" });
+      toast("Barber removed");
+      closeModal();
+      renderBarbers();
+    };
+  }
+
   async function renderBarbers() {
     const barbers = await api("/barbers");
 
@@ -1004,7 +1080,11 @@
         <div class="card__header">
           <div>
             <h2 class="card__title">${esc(b.name)} ${b.active ? "" : '<span class="badge badge--muted">Inactive</span>'}</h2>
-            <p class="card__desc">${b.commission_rate}% commission on referred sales</p>
+            <p class="card__desc">${b.commission_rate}% commission · ${esc(b.email || "No email")}${b.phone ? ` · ${esc(b.phone)}` : ""}</p>
+          </div>
+          <div class="btn-group barber-card__actions">
+            <button type="button" class="btn secondary sm" data-edit-barber="${b.id}">Edit</button>
+            <button type="button" class="btn danger sm" data-del-barber="${b.id}">Remove</button>
           </div>
         </div>
 
@@ -1019,7 +1099,6 @@
           <button type="button" class="btn secondary sm" data-dashboard="${b.id}">View details</button>
           <button type="button" class="btn sm" data-gen-codes="${b.id}">Generate 5 codes</button>
           <button type="button" class="btn secondary sm" data-pay-all="${b.id}">Mark all paid</button>
-          <button type="button" class="btn ghost sm" data-toggle-active="${b.id}" data-active="${b.active}">${b.active ? "Deactivate" : "Activate"}</button>
         </div>
 
         <hr class="section-divider" />
@@ -1044,11 +1123,30 @@
       .join("");
 
     list.onclick = async (e) => {
+      const edit = e.target.closest("[data-edit-barber]");
+      const del = e.target.closest("[data-del-barber]");
       const gen = e.target.closest("[data-gen-codes]");
       const pay = e.target.closest("[data-pay-all]");
       const dash = e.target.closest("[data-dashboard]");
-      const toggle = e.target.closest("[data-toggle-active]");
 
+      if (edit) {
+        const b = barbers.find((x) => x.id == edit.dataset.editBarber);
+        if (b) openBarberEditor(b);
+      }
+      if (del) {
+        const b = barbers.find((x) => x.id == del.dataset.delBarber);
+        if (!b) return;
+        if (
+          !confirm(
+            `Remove "${b.name}"? Their referral codes and commission records will be deleted. Existing orders will stay but won't be tied to this barber.`
+          )
+        ) {
+          return;
+        }
+        await api(`/barbers/${b.id}`, { method: "DELETE" });
+        toast("Barber removed");
+        renderBarbers();
+      }
       if (gen) {
         const r = await api(`/barbers/${gen.dataset.genCodes}/codes`, {
           method: "POST",
@@ -1063,49 +1161,82 @@
         toast("Commissions marked as paid");
         renderBarbers();
       }
-      if (toggle) {
-        const id = toggle.dataset.toggleActive;
-        const b = barbers.find((x) => x.id == id);
-        await api(`/barbers/${id}`, {
-          method: "PUT",
-          body: {
-            name: b.name,
-            email: b.email,
-            phone: b.phone,
-            commission_rate: b.commission_rate,
-            active: !b.active,
-          },
-        });
-        toast(b.active ? "Barber deactivated" : "Barber activated");
-        renderBarbers();
-      }
       if (dash) {
         const id = dash.dataset.dashboard;
-        const data = await api(`/barbers/${id}/dashboard`);
+        const barber = barbers.find((b) => String(b.id) === String(id));
         openModal(
-          `${esc(barbers.find((b) => b.id == id)?.name || "Barber")} — Details`,
+          `${esc(barber?.name || "Barber")} — Details`,
           "Performance and commission history",
-          `
+          `<div class="loading-state"><span class="loading-spinner"></span> Loading…</div>`
+        );
+        try {
+          const data = await api(`/barbers/${id}/dashboard`);
+          const s = data.stats || {};
+          const stats = {
+            totalOrders: s.totalOrders ?? s.total_orders ?? barber?.stats?.total_orders ?? 0,
+            totalSales: s.totalSales ?? s.total_sales ?? barber?.stats?.total_sales ?? 0,
+            unpaidCommissions:
+              s.unpaidCommissions ?? s.unpaid_commissions ?? barber?.stats?.unpaid_commissions ?? 0,
+            paidCommissions: s.paidCommissions ?? s.paid_commissions ?? barber?.stats?.paid_commissions ?? 0,
+          };
+          const orders = data.orders || [];
+          const commissions = data.commissions || [];
+          const customers = data.customers || [];
+
+          openModal(
+            `${esc(barber?.name || data.barber?.name || "Barber")} — Details`,
+            "Performance and commission history",
+            `
           <div class="barber-card__stats">
-            <div class="barber-stat"><span>Orders</span><strong>${data.stats.totalOrders}</strong></div>
-            <div class="barber-stat"><span>Sales</span><strong>${money(data.stats.totalSales)}</strong></div>
-            <div class="barber-stat"><span>Unpaid</span><strong>${money(data.stats.unpaidCommissions)}</strong></div>
-            <div class="barber-stat"><span>Paid</span><strong>${money(data.stats.paidCommissions)}</strong></div>
+            <div class="barber-stat"><span>Orders</span><strong>${stats.totalOrders}</strong></div>
+            <div class="barber-stat"><span>Sales</span><strong>${money(stats.totalSales)}</strong></div>
+            <div class="barber-stat"><span>Unpaid</span><strong>${money(stats.unpaidCommissions)}</strong></div>
+            <div class="barber-stat"><span>Paid</span><strong>${money(stats.paidCommissions)}</strong></div>
+          </div>
+
+          <div class="modal-section">
+            <h3 class="modal-section__title">Referred orders</h3>
+            ${
+              orders.length
+                ? `<div class="table-wrap table-wrap--stack">
+              <table class="data-table data-table--stack">
+                <thead><tr><th>Order</th><th>Customer</th><th>Total</th></tr></thead>
+                <tbody>${orders
+                  .map(
+                    (o) => `<tr>
+                      <td data-label="Order"><strong>${esc(o.order_number)}</strong></td>
+                      <td data-label="Customer">${esc(o.customer_name)}<br><span class="product-meta">${esc(o.customer_email)}</span></td>
+                      <td data-label="Total">${money(o.total)}</td>
+                    </tr>`
+                  )
+                  .join("")}</tbody>
+              </table>
+            </div>`
+                : `<p class="field-hint">No paid referred orders yet.</p>`
+            }
           </div>
 
           <div class="modal-section">
             <h3 class="modal-section__title">Referred customers</h3>
-            ${data.customers.length ? `<ul>${data.customers.map((c) => `<li>${esc(c.name)} — ${esc(c.email)}</li>`).join("")}</ul>` : `<p class="field-hint">No referred customers yet.</p>`}
+            ${
+              customers.length
+                ? `<ul class="barber-customer-list">${customers.map((c) => `<li>${esc(c.name)} — ${esc(c.email)}</li>`).join("")}</ul>`
+                : orders.length
+                  ? `<p class="field-hint">Customer profiles were not stored for these orders.</p>`
+                  : `<p class="field-hint">No referred customers yet.</p>`
+            }
           </div>
 
           <div class="modal-section">
             <h3 class="modal-section__title">Commission history</h3>
-            <div class="table-wrap table-wrap--stack">
+            ${
+              commissions.length
+                ? `<div class="table-wrap table-wrap--stack">
               <table class="data-table data-table--stack">
                 <thead><tr><th>Order</th><th>Amount</th><th>Status</th><th></th></tr></thead>
-                <tbody id="comm-rows">${data.commissions
+                <tbody class="comm-rows">${commissions
                   .map((c) => {
-                    const order = data.orders.find((o) => o.id === c.order_id);
+                    const order = orders.find((o) => String(o.id) === String(c.order_id));
                     return `<tr>
                       <td data-label="Order">${esc(order?.order_number || c.order_id)}</td>
                       <td data-label="Amount">${money(c.amount)}</td>
@@ -1115,19 +1246,24 @@
                   })
                   .join("")}</tbody>
               </table>
-            </div>
+            </div>`
+                : `<p class="field-hint">No commissions recorded yet.</p>`
+            }
           </div>`
-        );
+          );
 
-        document.getElementById("comm-rows").onclick = async (ev) => {
-          const pc = ev.target.closest("[data-pay-comm]");
-          if (pc) {
+          modalRoot.querySelector(".comm-rows")?.addEventListener("click", async (ev) => {
+            const pc = ev.target.closest("[data-pay-comm]");
+            if (!pc) return;
             await api(`/commissions/${pc.dataset.payComm}/pay`, { method: "POST" });
             toast("Commission marked as paid");
             closeModal();
             renderBarbers();
-          }
-        };
+          });
+        } catch (err) {
+          closeModal();
+          toast(err.message || "Could not load barber details", "error");
+        }
       }
     };
   }

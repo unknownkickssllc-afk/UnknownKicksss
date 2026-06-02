@@ -334,6 +334,19 @@ async function clearCatalog() {
   await sb.from("site_content").delete().neq("key", "");
 }
 
+/** Removes orders, barbers, customers, and referral data. Keeps products, categories, and site content. */
+async function clearDemoData() {
+  const sb = supabase();
+  await sb.from("commissions").delete().gte("id", 0);
+  await sb.from("order_items").delete().gte("id", 0);
+  await sb.from("orders").update({ referral_code_id: null, barber_id: null }).neq("id", 0);
+  await sb.from("referral_codes").delete().gte("id", 0);
+  await sb.from("orders").delete().gte("id", 0);
+  await sb.from("customers").delete().neq("id", 0);
+  await sb.from("barbers").delete().neq("id", 0);
+  await sb.from("admin_users").delete().neq("id", 0);
+}
+
 async function insertCategory(c) {
   const { data, error } = await supabase().from("categories").insert(c).select().single();
   if (error) throw new Error(error.message);
@@ -515,39 +528,100 @@ async function updateSiteContent(updates) {
   }
 }
 
+function barberIdValue(barberId) {
+  const n = Number(barberId);
+  return Number.isFinite(n) ? n : barberId;
+}
+
+async function fetchBarberPerformance(barberId) {
+  const id = barberIdValue(barberId);
+  const sb = supabase();
+
+  const { data: barber, error: barberErr } = await sb.from("barbers").select("*").eq("id", id).maybeSingle();
+  if (barberErr) throw new Error(barberErr.message);
+  if (!barber) throw new Error("Barber not found");
+
+  const { data: codes, error: codesErr } = await sb
+    .from("referral_codes")
+    .select("id, code, used_at, order_id, created_at")
+    .eq("barber_id", id)
+    .order("created_at", { ascending: false });
+  if (codesErr) throw new Error(codesErr.message);
+
+  const { data: directOrders, error: ordersErr } = await sb
+    .from("orders")
+    .select("*")
+    .eq("barber_id", id)
+    .eq("payment_status", "paid")
+    .order("created_at", { ascending: false });
+  if (ordersErr) throw new Error(ordersErr.message);
+
+  const linkedOrderIds = [
+    ...new Set((codes || []).map((c) => c.order_id).filter((oid) => oid != null)),
+  ];
+  let linkedOrders = [];
+  if (linkedOrderIds.length) {
+    const { data, error: linkedErr } = await sb
+      .from("orders")
+      .select("*")
+      .in("id", linkedOrderIds)
+      .eq("payment_status", "paid");
+    if (linkedErr) throw new Error(linkedErr.message);
+    linkedOrders = data || [];
+  }
+
+  const ordersById = new Map();
+  for (const o of [...(directOrders || []), ...linkedOrders]) ordersById.set(o.id, o);
+  const orders = [...ordersById.values()].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  const { data: commissions, error: commErr } = await sb
+    .from("commissions")
+    .select("*")
+    .eq("barber_id", id)
+    .order("created_at", { ascending: false });
+  if (commErr) throw new Error(commErr.message);
+
+  const customerIds = [...new Set(orders.map((o) => o.customer_id).filter(Boolean))];
+  let customers = [];
+  if (customerIds.length) {
+    const { data, error: custErr } = await sb.from("customers").select("*").in("id", customerIds);
+    if (custErr) throw new Error(custErr.message);
+    customers = data || [];
+  }
+
+  const stats = {
+    total_orders: orders.length,
+    total_sales: orders.reduce((s, o) => s + Number(o.total), 0),
+    unpaid_commissions: (commissions || [])
+      .filter((c) => c.status === "unpaid")
+      .reduce((s, c) => s + Number(c.amount), 0),
+    paid_commissions: (commissions || [])
+      .filter((c) => c.status === "paid")
+      .reduce((s, c) => s + Number(c.amount), 0),
+  };
+
+  return {
+    barber,
+    referralCodes: codes || [],
+    orders,
+    commissions: commissions || [],
+    customers,
+    stats,
+  };
+}
+
 async function getAllBarbersAdmin() {
-  const { data: barbers } = await supabase().from("barbers").select("*").order("name");
+  const { data: barbers, error } = await supabase().from("barbers").select("*").order("name");
+  if (error) throw new Error(error.message);
   const result = [];
   for (const b of barbers || []) {
-    const { data: codes } = await supabase()
-      .from("referral_codes")
-      .select("id, code, used_at, order_id, created_at")
-      .eq("barber_id", b.id)
-      .order("created_at", { ascending: false });
-    const { data: paidOrders } = await supabase()
-      .from("orders")
-      .select("total")
-      .eq("barber_id", b.id)
-      .eq("payment_status", "paid");
-    const { data: unpaid } = await supabase()
-      .from("commissions")
-      .select("amount")
-      .eq("barber_id", b.id)
-      .eq("status", "unpaid");
-    const { data: paidComm } = await supabase()
-      .from("commissions")
-      .select("amount")
-      .eq("barber_id", b.id)
-      .eq("status", "paid");
+    const perf = await fetchBarberPerformance(b.id);
     result.push({
       ...b,
-      referralCodes: codes || [],
-      stats: {
-        total_orders: paidOrders?.length || 0,
-        total_sales: (paidOrders || []).reduce((s, o) => s + Number(o.total), 0),
-        unpaid_commissions: (unpaid || []).reduce((s, c) => s + Number(c.amount), 0),
-        paid_commissions: (paidComm || []).reduce((s, c) => s + Number(c.amount), 0),
-      },
+      referralCodes: perf.referralCodes,
+      stats: perf.stats,
     });
   }
   return result;
@@ -559,7 +633,27 @@ async function createBarber(body) {
 }
 
 async function updateBarber(id, body) {
-  await supabase().from("barbers").update(body).eq("id", id);
+  const { error } = await supabase()
+    .from("barbers")
+    .update({
+      name: body.name,
+      email: body.email || null,
+      phone: body.phone || null,
+      commission_rate: body.commission_rate,
+      active: body.active,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+async function deleteBarber(id) {
+  const sb = supabase();
+  await sb.from("commissions").delete().eq("barber_id", id);
+  await sb.from("orders").update({ referral_code_id: null, barber_id: null }).eq("barber_id", id);
+  await sb.from("referral_codes").delete().eq("barber_id", id);
+  const { data, error } = await sb.from("barbers").delete().eq("id", id).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("Barber not found");
 }
 
 async function generateReferralCodes(barberId, count) {
@@ -575,39 +669,17 @@ async function generateReferralCodes(barberId, count) {
 }
 
 async function getBarberDashboard(barberId) {
-  const { data: barber } = await supabase().from("barbers").select("*").eq("id", barberId).single();
-  const { data: orders } = await supabase()
-    .from("orders")
-    .select("*")
-    .eq("barber_id", barberId)
-    .eq("payment_status", "paid")
-    .order("created_at", { ascending: false });
-  const { data: commissions } = await supabase()
-    .from("commissions")
-    .select("*")
-    .eq("barber_id", barberId)
-    .order("created_at", { ascending: false });
-  const { data: customers } = await supabase()
-    .from("customers")
-    .select("*")
-    .in(
-      "id",
-      [...new Set((orders || []).map((o) => o.customer_id).filter(Boolean))]
-    );
+  const perf = await fetchBarberPerformance(barberId);
   return {
-    barber,
-    orders: orders || [],
-    commissions: commissions || [],
-    customers: customers || [],
+    barber: perf.barber,
+    orders: perf.orders,
+    commissions: perf.commissions,
+    customers: perf.customers,
     stats: {
-      totalOrders: orders?.length || 0,
-      totalSales: (orders || []).reduce((s, o) => s + Number(o.total), 0),
-      unpaidCommissions: (commissions || [])
-        .filter((c) => c.status === "unpaid")
-        .reduce((s, c) => s + Number(c.amount), 0),
-      paidCommissions: (commissions || [])
-        .filter((c) => c.status === "paid")
-        .reduce((s, c) => s + Number(c.amount), 0),
+      totalOrders: perf.stats.total_orders,
+      totalSales: perf.stats.total_sales,
+      unpaidCommissions: perf.stats.unpaid_commissions,
+      paidCommissions: perf.stats.paid_commissions,
     },
   };
 }
@@ -654,6 +726,7 @@ module.exports = {
   getAdminByEmail,
   upsertAdmin,
   clearCatalog,
+  clearDemoData,
   insertCategory,
   insertProduct,
   insertProductImage,
@@ -679,6 +752,7 @@ module.exports = {
   getAllBarbersAdmin,
   createBarber,
   updateBarber,
+  deleteBarber,
   generateReferralCodes,
   getBarberDashboard,
   payCommission,
