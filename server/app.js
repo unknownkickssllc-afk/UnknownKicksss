@@ -108,6 +108,10 @@ app.use(
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
 if (!onVercel) {
   app.use(express.static(publicRoot));
+} else {
+  app.get("/", (_req, res) => {
+    res.sendFile(path.join(publicRoot, "index.html"));
+  });
 }
 
 app.use("/api", storeRoutes);
