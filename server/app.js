@@ -23,6 +23,7 @@ const storeRoutes = require("./routes/store");
 const checkoutRoutes = require("./routes/checkout");
 const adminRoutes = require("./routes/admin");
 const osRoutes = require("./routes/os");
+const { requireAdmin } = require("./middleware/auth");
 
 const app = express();
 const publicRoot = path.join(__dirname, "..", "public");
@@ -105,13 +106,10 @@ const adminRoot = path.join(publicRoot, "admin");
 app.get(["/admin", "/admin/"], (_req, res) => {
   res.sendFile(path.join(adminRoot, "index.html"));
 });
-app.use("/admin", express.static(adminRoot, { redirect: false }));
-
-const osRoot = path.join(publicRoot, "os");
-app.get(["/os", "/os/"], (_req, res) => {
-  res.sendFile(path.join(osRoot, "index.html"));
+app.get(["/admin/os", "/admin/os/"], requireAdmin, (_req, res) => {
+  res.sendFile(path.join(__dirname, "views", "os.html"));
 });
-app.use("/os", express.static(osRoot, { redirect: false }));
+app.use("/admin", express.static(adminRoot, { redirect: false }));
 
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
 if (!onVercel) {

@@ -338,6 +338,7 @@ body {
 
 .nav-item {
   display: flex;
+  text-decoration: none;
   align-items: center;
   gap: 0.65rem;
   width: 100%;

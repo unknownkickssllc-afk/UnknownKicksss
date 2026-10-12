@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unknown Kickss OS</title>
+  <link rel="icon" href="/logo.jpg" type="image/jpeg" />
+  <style>*{box-sizing:border-box}body{margin:0;background:#0b0b0b;color:#f5f5f5;font-family:Inter,Arial,sans-serif}.shell{min-height:100vh;display:grid;grid-template-columns:260px 1fr}.sidebar{border-right:1px solid #272727;padding:28px 22px;position:sticky;top:0;height:100vh;background:#101010}.logo{width:58px;height:58px;object-fit:cover;border-radius:14px;margin-bottom:22px}.eyebrow{font-size:11px;letter-spacing:.18em;color:#929292;margin:0 0 8px}.sidebar h1{font-size:22px;margin:0 0 7px}.muted{color:#8e8e8e;font-size:13px;line-height:1.5}.sidebar nav{display:grid;gap:8px;margin-top:30px}.nav,.ghost{border:0;background:transparent;color:#aaa;text-align:left;padding:12px 14px;border-radius:10px;cursor:pointer}.nav:hover,.nav.active{background:#1d1d1d;color:#fff}.admin-link{position:absolute;bottom:28px;color:#aaa;text-decoration:none;font-size:13px}main{padding:32px 40px 70px;max-width:1450px;width:100%}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}.topbar h2{margin:0;font-size:30px}.ghost{border:1px solid #303030;text-align:center}.notice{padding:14px 16px;border:1px solid #5f4b1e;background:#211b0d;border-radius:12px;margin-bottom:18px}.hidden{display:none!important}.section{display:none}.section.active{display:block}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}.metric{background:#151515;border:1px solid #272727;border-radius:16px;padding:20px}.metric span{display:block;color:#999;font-size:12px;margin-bottom:10px}.metric strong{font-size:27px}.grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.card{background:#151515;border:1px solid #272727;border-radius:16px;padding:20px;margin-bottom:14px}.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.card h3{margin:0;font-size:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.form-grid.three{grid-template-columns:repeat(3,1fr)}label{font-size:12px;color:#aaa;display:grid;gap:7px}input,select{width:100%;background:#0f0f0f;color:#fff;border:1px solid #303030;border-radius:10px;padding:11px 12px}button[type=submit]{background:#f2f2f2;color:#090909;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;align-self:end}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #262626;padding:10px 8px;white-space:nowrap}th{color:#8b8b8b;font-weight:500}.pill{display:inline-block;border:1px solid #333;padding:4px 7px;border-radius:999px;color:#bbb}.money-pos{color:#b7e7c0}.money-neg{color:#ff9d9d}@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid #272727}.sidebar nav{grid-template-columns:repeat(3,1fr)}.admin-link{position:static;display:block;margin-top:20px}main{padding:24px 16px}.metric-grid,.grid.two,.form-grid,.form-grid.three{grid-template-columns:1fr}}</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <img src="/logo.jpg" alt="Unknown Kickss" class="logo" />
+      <div>
+        <p class="eyebrow">PRIVATE</p>
+        <h1>Unknown Kickss OS</h1>
+        <p class="muted">Money, inventory, consignment, referrals, and growth.</p>
+      </div>
+      <nav>
+        <button class="nav active" data-section="dashboard">Dashboard</button>
+        <button class="nav" data-section="capital">Capital</button>
+        <button class="nav" data-section="deals">Deals</button>
+        <button class="nav" data-section="consignment">Consignment</button>
+        <button class="nav" data-section="expenses">Expenses</button>
+        <button class="nav" data-section="referrals">Referral Rules</button>
+      </nav>
+      <a href="/admin/" class="admin-link">← Back to admin</a>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">OPERATING SYSTEM</p>
+          <h2 id="section-title">Dashboard</h2>
+        </div>
+        <button id="refresh-btn" class="ghost">Refresh</button>
+      </header>
+
+      
+      <div id="schema-warning" class="notice hidden"></div>
+
+      <section id="dashboard" class="section active">
+        <div id="metric-grid" class="metric-grid"></div>
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head"><h3>Partner buying capacity</h3></div>
+            <div id="capacity-table"></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Consignment pipeline</h3></div>
+            <div id="consignment-summary"></div>
+          </article>
+        </div>
+        <article class="card">
+          <div class="card-head"><h3>Recent deals</h3></div>
+          <div id="recent-deals"></div>
+        </article>
+      </section>
+
+      <section id="capital" class="section">
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head"><h3>Add funding source</h3></div>
+            <form id="funding-form" class="form-grid">
+              <label>Partner<select name="member_id" id="funding-member"></select></label>
+              <label>Label<input name="label" placeholder="Jahson inventory capital" required /></label>
+              <label>Type<select name="account_type"><option value="cash">Cash</option><option value="credit">Credit</option><option value="bank">Bank</option><option value="business_cash">Business cash</option><option value="other">Other</option></select></label>
+              <label>Purpose<select name="purpose"><option value="inventory">Inventory</option><option value="operations">Operations</option><option value="mixed">Mixed</option><option value="legacy">Legacy</option></select></label>
+              <label>Available to use<input name="available_to_business" type="number" step="0.01" /></label>
+              <label>Business balance owed<input name="business_balance" type="number" step="0.01" /></label>
+              <label>Credit limit<input name="credit_limit" type="number" step="0.01" /></label>
+              <label>APR %<input name="apr_percent" type="number" step="0.001" /></label>
+              <label class="check"><input name="legacy" type="checkbox" /> Legacy / old business debt</label>
+              <button type="submit">Add source</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Funding sources</h3></div>
+            <div id="funding-table"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="deals" class="section">
+        <article class="card">
+          <div class="card-head"><h3>New inventory deal</h3></div>
+          <form id="deal-form" class="form-grid three">
+            <label>Deal code<input name="deal_code" placeholder="UK-INV-001" required /></label>
+            <label>Title<input name="title" placeholder="Vale / Supreme lot" required /></label>
+            <label>Total cost<input name="total_cost" type="number" step="0.01" required /></label>
+            <label>Ownership<select name="ownership_type"><option value="joint">Joint</option><option value="individual">Individual</option><option value="consignment_in">Customer consignment</option><option value="legacy">Legacy</option></select></label>
+            <label>Status<select name="status"><option value="planned">Planned</option><option value="active">Active</option></select></label>
+            <label>Purchase date<input name="purchased_at" type="date" /></label>
+            <label>Jahson %<input name="jahson_percent" type="number" step="0.01" placeholder="40" /></label>
+            <label>Jamal %<input name="jamal_percent" type="number" step="0.01" placeholder="60" /></label>
+            <label>Notes<input name="notes" /></label>
+            <button type="submit">Create deal</button>
+          </form>
+        </article>
+        <article class="card">
+          <div class="card-head"><h3>All deals</h3></div>
+          <div id="deals-table"></div>
+        </article>
+      </section>
+
+      <section id="consignment" class="section">
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head"><h3>Add consignment position</h3></div>
+            <form id="consignment-form" class="form-grid">
+              <label>Item<input name="item_name" required /></label>
+              <label>Partner/store<input name="partner_name" /></label>
+              <label>Original cost<input name="original_cost" type="number" step="0.01" /></label>
+              <label>List price<input name="list_price" type="number" step="0.01" /></label>
+              <label>Expected payout<input name="expected_payout" type="number" step="0.01" /></label>
+              <label>Status<select name="payout_status"><option value="active">Active</option><option value="pending">Pending payout</option><option value="paid">Paid</option></select></label>
+              <label>Fee %<input name="fee_percent" type="number" step="0.01" /></label>
+              <button type="submit">Add position</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Positions</h3></div>
+            <div id="consignment-table"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="expenses" class="section">
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head"><h3>Add business expense</h3></div>
+            <form id="expense-form" class="form-grid">
+              <label>Description<input name="description" required /></label>
+              <label>Category<select name="category"><option>website</option><option>business_cards</option><option>ads</option><option>shipping</option><option>packaging</option><option>domain</option><option>software</option><option>other</option></select></label>
+              <label>Amount<input name="amount" type="number" step="0.01" required /></label>
+              <label>Date<input name="expense_date" type="date" /></label>
+              <label>Jahson %<input name="jahson_percent" type="number" step="0.01" /></label>
+              <label>Jamal %<input name="jamal_percent" type="number" step="0.01" /></label>
+              <button type="submit">Add expense</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Expenses</h3></div>
+            <div id="expenses-table"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="referrals" class="section">
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head"><h3>Referral program rule</h3></div>
+            <form id="referral-form" class="form-grid">
+              <label>Name<input name="name" placeholder="$5 off / $1 payout" required /></label>
+              <label>Customer discount<input name="customer_discount" type="number" step="0.01" /></label>
+              <label>Referrer reward<input name="referrer_reward" type="number" step="0.01" /></label>
+              <label>Minimum profit before promo<input name="min_pre_promo_profit" type="number" step="0.01" /></label>
+              <button type="submit">Save rule</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Programs</h3></div>
+            <div id="referral-table"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>let state=null;
+const $=(s)=>document.querySelector(s);
+const money=(n)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));
+function table(headers,rows){if(!rows.length)return '<p class="muted">Nothing here yet.</p>';return '<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
+async function api(path,opts={}){const r=await fetch(path,{headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'Request failed');e.status=r.status;throw e}return j}
+function membersByName(name){return state.members.find(m=>m.name.toLowerCase()===name.toLowerCase())}
+function render(){
+ const t=state.totals;
+ $('#metric-grid').innerHTML=[
+  ['Buying capacity',money(t.buyingCapacity)],['Business debt tracked',money(t.businessDebt)],['Inventory cost tied up',money(t.inventoryCost)],
+  ['Pending consignment',money(t.pendingConsignmentPayout)],['Active consignment potential',money(t.activeConsignmentPayout)],['Operating expenses logged',money(t.operatingExpenses)]
+ ].map(([l,v])=>'<div class="metric"><span>'+l+'</span><strong>'+v+'</strong></div>').join('');
+ $('#capacity-table').innerHTML=table(['Partner','Source','Available','Business balance'],state.accounts.map(a=>'<tr><td>'+(a.business_members?.name||'Business')+'</td><td>'+a.label+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td></tr>'));
+ $('#consignment-summary').innerHTML='<div class="metric"><span>Pending + active expected</span><strong>'+money(t.pendingConsignmentPayout+t.activeConsignmentPayout)+'</strong></div>';
+ $('#recent-deals').innerHTML=table(['Deal','Type','Cost','Status'],state.deals.slice(0,8).map(d=>'<tr><td>'+d.deal_code+' — '+d.title+'</td><td>'+d.ownership_type+'</td><td>'+money(d.total_cost)+'</td><td><span class="pill">'+d.status+'</span></td></tr>'));
+ const options=state.members.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');$('#funding-member').innerHTML=options;
+ $('#funding-table').innerHTML=table(['Partner','Label','Type','Available','Debt','APR'],state.accounts.map(a=>'<tr><td>'+(a.business_members?.name||'—')+'</td><td>'+a.label+'</td><td>'+a.account_type+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td><td>'+(a.apr_percent??'—')+'</td></tr>'));
+ $('#deals-table').innerHTML=table(['Code','Title','Ownership','Cost','Status'],state.deals.map(d=>'<tr><td>'+d.deal_code+'</td><td>'+d.title+'</td><td>'+d.ownership_type+'</td><td>'+money(d.total_cost)+'</td><td>'+d.status+'</td></tr>'));
+ $('#consignment-table').innerHTML=table(['Item','Store','Cost','List','Payout','Status'],state.consignments.map(c=>'<tr><td>'+c.item_name+'</td><td>'+(c.partner_name||'—')+'</td><td>'+money(c.original_cost)+'</td><td>'+money(c.list_price)+'</td><td>'+money(c.expected_payout)+'</td><td>'+c.payout_status+'</td></tr>'));
+ $('#expenses-table').innerHTML=table(['Date','Description','Category','Amount'],state.expenses.map(e=>'<tr><td>'+e.expense_date+'</td><td>'+e.description+'</td><td>'+e.category+'</td><td>'+money(e.amount)+'</td></tr>'));
+ $('#referral-table').innerHTML=table(['Program','Customer off','Referrer','Min profit'],state.referralPrograms.map(r=>'<tr><td>'+r.name+'</td><td>'+money(r.customer_discount)+'</td><td>'+money(r.referrer_reward)+'</td><td>'+money(r.min_pre_promo_profit)+'</td></tr>'));
+}
+async function load(){
+ $('#auth-warning').classList.add('hidden');$('#schema-warning').classList.add('hidden');
+ try{state=await api('/api/os/dashboard');render()}
+ catch(e){if(e.status===401){$('#auth-warning').classList.remove('hidden')}else{$('#schema-warning').textContent='OS database tables are not active yet. Run supabase/os_v1.sql in Supabase, then refresh. '+e.message;$('#schema-warning').classList.remove('hidden')}}
+}
+document.querySelectorAll('.nav').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.section).classList.add('active');$('#section-title').textContent=b.textContent.trim()}));
+$('#refresh-btn').onclick=load;
+function obj(form){return Object.fromEntries(new FormData(form).entries())}
+$('#funding-form').onsubmit=async e=>{e.preventDefault();const d=obj(e.target);d.legacy=e.target.legacy.checked;await api('/api/os/funding-accounts',{method:'POST',body:JSON.stringify(d)});e.target.reset();load()};
+$('#deal-form').onsubmit=async e=>{e.preventDefault();const d=obj(e.target),j=membersByName('Jahson'),m=membersByName('Jamal'),cost=Number(d.total_cost||0);d.contributions=[];if(j&&d.jahson_percent)d.contributions.push({member_id:j.id,amount:cost*Number(d.jahson_percent)/100,ownership_percent:Number(d.jahson_percent)});if(m&&d.jamal_percent)d.contributions.push({member_id:m.id,amount:cost*Number(d.jamal_percent)/100,ownership_percent:Number(d.jamal_percent)});delete d.jahson_percent;delete d.jamal_percent;await api('/api/os/deals',{method:'POST',body:JSON.stringify(d)});e.target.reset();load()};
+$('#consignment-form').onsubmit=async e=>{e.preventDefault();await api('/api/os/consignments',{method:'POST',body:JSON.stringify(obj(e.target))});e.target.reset();load()};
+$('#expense-form').onsubmit=async e=>{e.preventDefault();const d=obj(e.target),j=membersByName('Jahson'),m=membersByName('Jamal'),amount=Number(d.amount||0);d.splits=[];if(j&&d.jahson_percent)d.splits.push({member_id:j.id,amount:amount*Number(d.jahson_percent)/100,split_percent:Number(d.jahson_percent)});if(m&&d.jamal_percent)d.splits.push({member_id:m.id,amount:amount*Number(d.jamal_percent)/100,split_percent:Number(d.jamal_percent)});delete d.jahson_percent;delete d.jamal_percent;await api('/api/os/expenses',{method:'POST',body:JSON.stringify(d)});e.target.reset();load()};
+$('#referral-form').onsubmit=async e=>{e.preventDefault();await api('/api/os/referral-programs',{method:'POST',body:JSON.stringify(obj(e.target))});e.target.reset();load()};
+load();</script>
+</body>
+</html>
