@@ -22,6 +22,7 @@ if (!isSupabaseConfigured()) {
 const storeRoutes = require("./routes/store");
 const checkoutRoutes = require("./routes/checkout");
 const adminRoutes = require("./routes/admin");
+const osRoutes = require("./routes/os");
 
 const app = express();
 const publicRoot = path.join(__dirname, "..", "public");
@@ -106,6 +107,12 @@ app.get(["/admin", "/admin/"], (_req, res) => {
 });
 app.use("/admin", express.static(adminRoot, { redirect: false }));
 
+const osRoot = path.join(publicRoot, "os");
+app.get(["/os", "/os/"], (_req, res) => {
+  res.sendFile(path.join(osRoot, "index.html"));
+});
+app.use("/os", express.static(osRoot, { redirect: false }));
+
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
 if (!onVercel) {
   app.use(express.static(publicRoot));
@@ -118,6 +125,7 @@ if (!onVercel) {
 app.use("/api", storeRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/os", osRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {
