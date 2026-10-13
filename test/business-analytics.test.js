@@ -47,6 +47,24 @@ test("growth compares equal adjacent periods and no earlier sales has no fake pe
   assert.equal(report.growth.revenuePercent, 100);
   assert.equal(report.summary.returningCustomerRate, 100);
 });
+test("returning customers include repeat purchases in the same period without future purchases", () => {
+  const report = buildAnalytics({ now, orders: [
+    sale({ id: 1, customerKey: "repeat", orderedAt: "2026-10-02T12:00:00Z" }),
+    sale({ id: 2, customerKey: "repeat", orderedAt: "2026-10-10T12:00:00Z" }),
+    sale({ id: 3, customerKey: "new", orderedAt: "2026-10-11T12:00:00Z" }),
+    sale({ id: 4, customerKey: "new", orderedAt: "2026-10-14T12:00:00Z" }),
+  ] });
+  assert.equal(report.summary.orders, 3);
+  assert.equal(report.summary.returningCustomerRate, 50, "one of two period customers has returned by the period end");
+});
+test("previous period repeat-customer rate does not use purchases after that period", () => {
+  const report = buildAnalytics({ now, orders: [
+    sale({ id: 1, orderedAt: "2026-09-10T12:00:00Z" }),
+    sale({ id: 2, orderedAt: "2026-10-10T12:00:00Z" }),
+  ] });
+  assert.equal(report.previous.returningCustomerRate, 0);
+  assert.equal(report.summary.returningCustomerRate, 100);
+});
 test("negative margins remain negative; no-sale stock is an observation, not a loss", () => {
   const loss = sale({ total: 10, items: [{ productId: 1, productName: "Shirt", quantity: 1, lineTotal: 10, unitCost: 20 }] });
   const report = buildAnalytics({ now, orders: [loss], products: [{ id: 2, name: "Unsold", stock: 3 }] });

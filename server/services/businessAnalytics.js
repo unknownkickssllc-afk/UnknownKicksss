@@ -40,8 +40,13 @@ function buildAnalytics({ orders = [], products = [], expenses = [], accounts = 
     const expenseTotal = expenses.filter(e => inPeriod(e.expense_date, a, b)).reduce((s, e) => s + cents(e.amount), 0);
     const commissions = selected.reduce((s, o) => s + cents(o.commission), 0);
     const customers = new Set(selected.map(o => o.customerKey).filter(Boolean));
-    const priorCustomers = new Set(dated.filter(o => o.day < a).map(o => o.customerKey).filter(Boolean));
-    const returning = [...customers].filter(c => priorCustomers.has(c)).length;
+    const customerOrderCounts = new Map();
+    for (const order of dated) {
+      if (order.customerKey && order.day <= b) {
+        customerOrderCounts.set(order.customerKey, (customerOrderCounts.get(order.customerKey) || 0) + 1);
+      }
+    }
+    const returning = [...customers].filter(c => customerOrderCounts.get(c) > 1).length;
     const profit = costComplete && selected.length ? revenue - cogs : null;
     return {
       revenue: dollars(revenue), orders: selected.length,
