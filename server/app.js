@@ -3,6 +3,8 @@ const express = require("express");
 const cookieSession = require("cookie-session");
 const path = require("path");
 const Stripe = require("stripe");
+const { randomBytes } = require("crypto");
+const { isDeployed } = require("./lib/adminAuth");
 const { fulfillOrder } = require("./services/orderProcessor");
 const data = require("./data");
 const { isSupabaseConfigured } = require("./lib/supabase");
@@ -23,7 +25,7 @@ const storeRoutes = require("./routes/store");
 const checkoutRoutes = require("./routes/checkout");
 const adminRoutes = require("./routes/admin");
 const osRoutes = require("./routes/os");
-const { requireAdmin } = require("./middleware/auth");
+const { requireAdminPage } = require("./middleware/auth");
 
 const app = express();
 const publicRoot = path.join(__dirname, "..", "public");
@@ -85,15 +87,24 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cookieSession({
     name: "uk_session",
-    keys: [process.env.SESSION_SECRET || "unknown-kicks-dev-secret-change-me"],
+    keys: [process.env.SESSION_SECRET || (isDeployed()
+      ? randomBytes(32).toString("hex")
+      : "unknown-kicks-dev-secret-change-me")],
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isDeployed(),
     sameSite: "lax",
   })
 );
 
 const logoPath = path.join(publicRoot, "logo.jpg");
+
+// Authenticated pages and data must never be reused by a shared/browser cache.
+app.use(["/api/admin", "/api/os", "/admin/os"], (_req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
+  res.set("Vercel-CDN-Cache-Control", "no-store");
+  next();
+});
 
 app.get("/favicon.ico", (_req, res) => {
   res.type("image/jpeg");
@@ -106,7 +117,7 @@ const adminRoot = path.join(publicRoot, "admin");
 app.get(["/admin", "/admin/"], (_req, res) => {
   res.sendFile(path.join(adminRoot, "index.html"));
 });
-app.get(["/admin/os", "/admin/os/"], requireAdmin, (_req, res) => {
+app.get(["/admin/os", "/admin/os/"], requireAdminPage, (_req, res) => {
   res.sendFile(path.join(__dirname, "views", "os.html"));
 });
 app.use("/admin", express.static(adminRoot, { redirect: false }));

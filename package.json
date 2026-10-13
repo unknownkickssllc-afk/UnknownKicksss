@@ -4,6 +4,7 @@
   "description": "Unknown Kicks e-commerce with barber referral system",
   "main": "server/index.js",
   "scripts": {
+    "test": "node --test test/*.test.js",
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "vercel-build": "echo \"No build step\"",

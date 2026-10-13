@@ -121,22 +121,31 @@ Never commit `.env`. Copy from `.env.example` and set secrets only in Vercel.
 ### 3. Import on Vercel
 
 1. [vercel.com/new](https://vercel.com/new) → Import your GitHub repo
-2. Framework: **Other** (Express is auto-detected via `server.js`)
+2. Framework: **Express** (pinned in `vercel.json`, entry point `server.js`). Keep the root directory at the repository root and leave output-directory overrides unset. Native Express routing preserves the incoming URL; do not add a rewrite from `/api/*` to `/api/index`.
 3. **Environment variables** (Production):
 
 | Variable | Required | Notes |
 |----------|----------|--------|
 | `NODE_ENV` | Yes | `production` |
-| `SESSION_SECRET` | Yes | Long random string |
+| `SESSION_SECRET` | Yes | Unique long random string; never use the example/development value |
 | `BASE_URL` | Yes | `https://your-app.vercel.app` (no trailing slash) |
 | `SUPABASE_URL` | Yes | From Supabase → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | **service_role** key (server only) |
-| `ADMIN_PIN` | Yes | 4-digit admin access code (change from default `0000`) |
+| `ADMIN_PIN` | Yes | Exactly 4 digits; production rejects the local default `0000` |
 | `DEFAULT_COMMISSION_RATE` | No | Default `10` |
 | `STRIPE_SECRET_KEY` | For payments | Test or live key |
 | `STRIPE_WEBHOOK_SECRET` | For payments | Webhook signing secret |
 
-4. Deploy. Check `https://your-app.vercel.app/api/health` — expect `"database": "supabase"` and a product count.
+4. Set the same required variables separately for Preview if using preview deployments. Missing admin configuration returns a controlled 503 instead of accepting defaults.
+5. Deploy. Check `https://your-app.vercel.app/api/health` — expect `"database": "supabase"` and a product count. A 404 mentioning `/api/index` means a legacy rewrite is still active.
+
+### Admin and Business OS verification
+
+For an existing OS database, run `supabase/os_private.sql` once as the database owner. It is repeatable and changes only OS table/sequence permissions, enables RLS, denies `anon`/`authenticated` direct access, and preserves the server's `service_role` access. New OS installs use the same protections in `supabase/os_v1.sql`. Do not rerun the storefront schema or seed scripts to repair routing.
+
+Run `npm test` before deployment. After deployment, check `/admin/` with the configured PIN, confirm Business OS opens at `/admin/os`, then log out and confirm the page redirects to login and `/api/os/dashboard` plus OS POST endpoints return 401. `/os`, `/os/`, and `/os/index.html` must return 404. Check storefront products, content, images, cart, and checkout initialization without placing an order. Verify direct Supabase client-role access to all ten OS tables is denied.
+
+Use Vercel Firewall rate limiting for `/api/admin/login` before exposing a four-digit PIN on the internet; an in-memory limiter is not shared across serverless instances. Keep secrets in environment settings and never paste them into logs, tests, or a PR.
 
 ### 4. Stripe webhook (when using Stripe)
 
