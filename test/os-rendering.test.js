@@ -31,10 +31,10 @@ async function harness(fetcher) {
   const markup = html.replace(/<script>[\s\S]*?<\/script>/g, '');
   for (const match of markup.matchAll(/<[^>]*\bid=["']([^"']+)["'][^>]*>/g)) {
     const classes = new Set(match[0].match(/class="([^"]*)"/)?.[1].split(/\s+/) || []);
-    elements.set('#'+match[1], { innerHTML:'',textContent:'',disabled:false,classList:{add:value=>classes.add(value),remove:value=>classes.delete(value),contains:value=>classes.has(value)} });
+    elements.set('#'+match[1], { innerHTML:'',textContent:'',value:'',disabled:false,open:false,formValues:{},showModal(){this.open=true},close(){this.open=false},classList:{add:value=>classes.add(value),remove:value=>classes.delete(value),contains:value=>classes.has(value),toggle:(value,on)=>on?classes.add(value):classes.delete(value)} });
   }
   const requests = [];
-  const context = vm.createContext({ URL, document:{querySelector:selector=>elements.get(selector)||null,querySelectorAll:()=>[]},async fetch(url,options){requests.push({url,options});return fetcher(url,options)} });
+  const context = vm.createContext({ URL, setTimeout:()=>1,clearTimeout:()=>{},FormData:class{constructor(form){this.values=form.formValues}get(key){return this.values[key]??null}has(key){return key in this.values}}, document:{querySelector:selector=>elements.get(selector)||null,querySelectorAll:()=>[]},async fetch(url,options){requests.push({url,options});return fetcher(url,options)} });
   await vm.runInContext(script, context, {timeout:1000});
   return {html,elements,requests,context};
 }
@@ -89,4 +89,51 @@ it('reports history retrieval failures honestly and clears current plus historic
   for(const selector of ['#metric-grid','#history-capital','#sheet-items','#sheet-source'])assert.equal(view.elements.get(selector).innerHTML,'',selector+' clears on expiry');
   assert.equal(view.elements.get('#auth-warning').classList.contains('hidden'),false);
   assert.equal(view.elements.get('#refresh-btn').disabled,true);
+});
+
+
+it('finds imported items with filters and bounded pages', async()=>{
+ const data=history();data.sheet.items=Array.from({length:45},(_,i)=>({...data.sheet.items[0],sourceKey:'item-'+i,item:'Shoe '+i,status:i%2?'sale recorded':'inventory snapshot'}));
+ const view=await harness(async url=>({ok:true,json:async()=>url==='/api/os/dashboard'?dashboard():data}));
+ assert.match(view.elements.get('#inventory-page-info').textContent,/Page 1 of 3/);
+ assert.equal((view.elements.get('#sheet-items').innerHTML.match(/data-edit-kind=/g)||[]).length,20);
+ view.elements.get('#inventory-search').value='Shoe 44';view.elements.get('#inventory-search').oninput();
+ assert.match(view.elements.get('#inventory-page-info').textContent,/1 records/);
+ assert.match(view.elements.get('#sheet-items').innerHTML,/Shoe 44/);
+ assert.doesNotMatch(view.elements.get('#sheet-items').innerHTML,/Shoe 43/);
+});
+
+it('requires an explicit save and sends only edited historical fields with the original version',async()=>{
+ const view=await harness(async url=>({ok:true,json:async()=>url==='/api/os/dashboard'?dashboard():history()}));
+ vm.runInContext("openEditor('history:references','test-0')",view.context);
+ assert.equal(view.elements.get('#record-dialog').open,true);
+ assert.equal(view.requests.filter(r=>r.options.method==='PATCH').length,0);
+ vm.runInContext('closeEditor()',view.context);
+ assert.equal(view.elements.get('#record-dialog').open,false);
+ vm.runInContext("openEditor('history:references','test-0')",view.context);
+ view.elements.get('#record-form').formValues={title:'Synthetic reference',value_text:'Corrected value',reported_on:'',section:'capital',detail:'Synthetic reference'};
+ await view.elements.get('#record-form').onsubmit({preventDefault(){}});
+ const writes=view.requests.filter(r=>r.options.method==='PATCH');assert.equal(writes.length,1);
+ assert.equal(writes[0].url,'/api/os/history/references/test-0');
+ assert.deepEqual(JSON.parse(writes[0].options.body),{patch:{value_text:'Corrected value'},expectedUpdatedAt:null});
+});
+
+it('keeps conflicted edits open and clears stale profit when financial inputs change',async()=>{
+ const data=history();data.sheet.items[0]={...data.sheet.items[0],sourceKey:'item-test',quantity:1,unitCost:10,salePrice:20,recordedProfit:10,status:'sale recorded',editing:{updatedAt:'2026-01-01T00:00:00Z',original:{unitCost:10}}};
+ const view=await harness(async(url,opts)=>opts.method==='PATCH'?{ok:false,status:409,json:async()=>({error:'This record changed. Refresh before saving.'})}:{ok:true,json:async()=>url==='/api/os/dashboard'?dashboard():data});
+ vm.runInContext("openEditor('history:items','item-test')",view.context);
+ view.elements.get('#record-form').formValues={item:'Synthetic reference',size:'Synthetic reference',status:'sale recorded',quantity:'1',unitCost:'12',salePrice:'20',recordedProfit:'10',purchaseDate:'',saleDate:'',notes:'Synthetic reference'};
+ await view.elements.get('#record-form').onsubmit({preventDefault(){}});
+ const patch=JSON.parse(view.requests.find(r=>r.options.method==='PATCH').options.body);assert.deepEqual(patch.patch,{unitCost:12,recordedProfit:null});
+ assert.equal(patch.expectedUpdatedAt,'2026-01-01T00:00:00Z');assert.equal(view.elements.get('#record-dialog').open,true);
+ assert.match(view.elements.get('#dialog-error').textContent,/Close this form, refresh/);
+});
+
+it('AI preparation only requests a draft and escapes model output before review',async()=>{
+ const malicious='<img src=x onerror=alert(1)>';
+ const view=await harness(async url=>({ok:true,json:async()=>url.endsWith('/assistant/draft')?{summary:malicious,questions:[malicious],draft:{kind:'expense',fields:{description:malicious,amount:25,category:'other',expense_date:null}}}:url==='/api/os/dashboard'?dashboard():history()}));
+ view.elements.get('#assistant-message').value='Expense of $25';await view.elements.get('#assistant-form').onsubmit({preventDefault(){}});
+ assert.equal(view.requests.filter(r=>r.options.method==='POST').length,1);assert.equal(view.requests.at(-1).url,'/api/os/assistant/draft');
+ assert.doesNotMatch(view.elements.get('#assistant-result').innerHTML,/<img/);assert.match(view.elements.get('#assistant-result').innerHTML,/&lt;img/);
+ vm.runInContext('reviewDraft()',view.context);assert.equal(view.elements.get('#record-dialog').open,true);assert.equal(view.requests.filter(r=>r.options.method==='POST').length,1);
 });

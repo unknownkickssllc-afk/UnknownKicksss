@@ -187,3 +187,11 @@ Duplicate paid orders with the same nonempty Stripe reference are counted once a
 - Use HTTPS in production (`NODE_ENV=production` for secure cookies)
 - Do not commit `.env` or `data/shop.db` with real customer data
 - Rotate Supabase **service_role** if it was ever exposed; never use it in the browser
+
+## Owner workspace and number entry
+
+The private `/admin/os` workspace groups inventory history, consignment, finances, deals, expenses, and referral rules behind the existing admin login. Search and filters narrow imported rows; tables show 20 records per page. Edit opens a review form with explicit Save and Cancel. Record updates validate fields on the server and reject stale edits. Original imported data remains available alongside working corrections. Corrections never become current cash or storefront stock automatically.
+
+The AI helper prepares new expense, purchase-deal, and consignment-entry drafts from owner-entered text. It sends that text and the current Eastern date to AI Gateway; it does not send the business database or give the model database-write tools. Review and complete the form, then explicitly save. A purchase deal does not create storefront products or set partner ownership percentages. Unsupported operations and missing information are returned as questions. Existing records have direct Edit controls.
+
+AI uses the pinned `ai` SDK, Node.js 22 or later (CI uses 24), and Vercel OIDC in deployed functions. `AI_GATEWAY_API_KEY` is an optional server-only alternative for local/non-Vercel execution; `AI_GATEWAY_MODEL` can override the default verified Gateway model. Never expose either authentication credential in a client bundle. The connected Vercel team must have Gateway access and credits; configuration or credit failures leave ordinary manual forms usable. The helper does not buy credits or change account billing. Per-instance request throttling limits bursts but is not a distributed billing limit.

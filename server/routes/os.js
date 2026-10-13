@@ -2,9 +2,12 @@ const express = require("express");
 const { supabase } = require("../lib/supabase");
 const { requireAdmin } = require("../middleware/auth");
 const { loadBusinessHistory } = require("../services/businessHistory");
+const { saveHistoryOverride, validateRequest } = require("../services/historyEditing");
 
 const router = express.Router();
 router.use(requireAdmin);
+router.use('/assistant', require('./ownerAssistant'));
+router.use(require('./osRecords'));
 
 router.get("/history", async (_req, res) => {
   try { res.json(await loadBusinessHistory(supabase())); }
@@ -15,6 +18,20 @@ router.get("/history", async (_req, res) => {
       : "Business history could not be loaded. Please refresh." });
   }
 });
+
+for (const kind of ["references", "items", "expenses"]) {
+  router.patch(`/history/${kind}/:sourceKey`, async (req, res) => {
+    try {
+      validateRequest(kind, req.params.sourceKey, req.body);
+      res.json(await saveHistoryOverride(supabase(), kind, req.params.sourceKey, req.body));
+    } catch (error) {
+      const missingSchema = ["42P01", "PGRST200", "PGRST205"].includes(error.code);
+      res.status(error.status || (missingSchema ? 503 : 500)).json({ error: error.status ? error.message : missingSchema
+        ? "History editing is being prepared. Your records are unchanged."
+        : "Changes could not be saved. Please refresh and try again." });
+    }
+  });
+}
 
 async function table(name) {
   return supabase().from(name);

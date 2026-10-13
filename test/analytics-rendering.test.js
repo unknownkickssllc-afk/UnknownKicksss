@@ -31,7 +31,9 @@ async function harness(fetcher = async () => ({ ok: true, json: async () => fixt
     const classes = new Set(match[0].match(/class="([^"]*)"/)?.[1].split(/\s+/) || []);
     elements.set('#' + match[1], {
       innerHTML: '', textContent: '', value: match[1] === 'period' ? '30' : '', disabled: false,
-      listeners: {}, focused: false, dirtyNode: null,
+      listeners: {}, focused: false, dirtyNode: null, hidden: /\bhidden(?:\s|>)/.test(match[0]), attributes: {},
+      setAttribute(name, value) { this.attributes[name] = String(value); },
+      focus() { this.focused = true; },
       classList: { add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value) },
       addEventListener(type, handler) { this.listeners[type] = handler; },
       contains() { return this.focused; },
@@ -83,14 +85,14 @@ it('renders real analytics with safe stored text and unknown-cost gaps instead o
   const chart = view.elements.get('#sales-chart').innerHTML;
   assert.match(chart, /role="img"/);
   assert.match(chart, /<title id="sales-chart-title">/);
-  const profitPath = chart.match(/<path d="([^"]*)"[^>]*stroke="#9bbcff"/)[1];
+  const profitPath = chart.match(/<path d="([^"]*)"[^>]*stroke="#3478c5"/)[1];
   assert.equal((profitPath.match(/M/g) || []).length, 2, 'Missing costs must leave separate profit segments');
   assert.doesNotMatch(profitPath, /L/, 'A line must not connect across the unknown-cost day');
   assert.match(view.elements.get('#daily-table').innerHTML, /Oct 12, 2026/);
   assert.match(view.elements.get('#daily-table').innerHTML, /Needs costs/);
   assert.match(view.elements.get('#item-costs').innerHTML, /Oct 12, 2026/, 'Historical sale dates use Eastern time');
   assert.match(view.elements.get('#missing-cost-period').textContent, /newest 200 shown/);
-  assert.match(view.html, /Imported spreadsheet history stays in its own section above/);
+  assert.match(view.html, /Imported spreadsheet history stays in its own tab/);
   assert.equal(view.elements.get('#error-message').classList.contains('hidden'), true);
   assert.equal(view.context.compromised, undefined);
 });
@@ -280,4 +282,92 @@ it('clears both imported history and website data when the history endpoint reje
   expired=true;await view.elements.get('#refresh').listeners.click();
   for(const selector of ['#history-periods','#history-source','#history-items','#history-references','#metrics','#finance'])assert.equal(view.elements.get(selector).innerHTML,'',selector+' must clear on expiry');
   assert.equal(view.elements.get('#auth-warning').classList.contains('hidden'),false);
+});
+
+
+it('switches accessible analytics source tabs without mixing their figures or losing filters', async () => {
+  const view = await harness(undefined,async()=>({ok:true,json:async()=>historyFixture()}));
+  await view.initial;
+  assert.equal(view.elements.get('#source-website').hidden,true);
+  assert.equal(view.elements.get('#source-history').hidden,false);
+  view.elements.get('#history-search').value = 'synthetic';
+  view.elements.get('#tab-website').listeners.click();
+  assert.equal(view.elements.get('#source-history').hidden,true);
+  assert.equal(view.elements.get('#source-website').hidden,false);
+  assert.equal(view.elements.get('#tab-website').attributes['aria-selected'],'true');
+  assert.equal(view.elements.get('#tab-website').tabIndex,0);
+  assert.equal(view.elements.get('#tab-history').tabIndex,-1);
+  let prevented = false;
+  view.elements.get('#tab-website').listeners.keydown({key:'ArrowLeft',preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);
+  assert.equal(view.elements.get('#source-history').hidden,false);
+  assert.equal(view.elements.get('#tab-history').focused,true);
+  assert.equal(view.elements.get('#history-search').value,'synthetic');
+  assert.match(view.elements.get('#metrics').innerHTML,/\$150\.00/);
+  assert.match(view.elements.get('#history-metrics').innerHTML,/\$12\.00/);
+  assert.match(view.html,/href="\/admin\/os#assistant">AI helper/);
+});
+
+it('searches and paginates imported rows while preserving exact source data and resetting pages on filter changes', async () => {
+  const history = historyFixture();
+  history.sheet.items = Array.from({length:45},(_,index)=>({...history.sheet.items[0],item:'Item '+String(index+1).padStart(2,'0'),sourceRow:index+2,period:index<25?'May':'June',status:index%2?'Sold':'Stock',notes:index===43?'Special note':'Original notes retained'}));
+  const view = await harness(undefined,async()=>({ok:true,json:async()=>history}));
+  await view.initial;
+  assert.match(view.elements.get('#history-count').textContent,/1–20 of 45 items · Page 1 of 3/);
+  assert.match(view.elements.get('#history-items').innerHTML,/Item 20/);
+  assert.doesNotMatch(view.elements.get('#history-items').innerHTML,/Item 21/);
+  assert.equal(view.elements.get('#history-prev').disabled,true);
+  view.elements.get('#history-next').listeners.click();
+  assert.match(view.elements.get('#history-count').textContent,/21–40 of 45/);
+  assert.match(view.elements.get('#history-items').innerHTML,/Item 21/);
+  view.elements.get('#history-next').listeners.click();
+  assert.match(view.elements.get('#history-count').textContent,/41–45 of 45/);
+  assert.equal(view.elements.get('#history-next').disabled,true);
+  view.elements.get('#history-period-filter').value='May';
+  view.elements.get('#history-period-filter').listeners.change();
+  assert.match(view.elements.get('#history-count').textContent,/1–20 of 25/);
+  view.elements.get('#history-status-filter').value='Sold';
+  view.elements.get('#history-status-filter').listeners.change();
+  assert.match(view.elements.get('#history-count').textContent,/1–12 of 12/);
+  assert.doesNotMatch(view.elements.get('#history-items').innerHTML,/Item 01/);
+  view.elements.get('#history-period-filter').value='';
+  view.elements.get('#history-search').value='special note';
+  view.elements.get('#history-search').listeners.input();
+  assert.match(view.elements.get('#history-count').textContent,/1–1 of 1/);
+  assert.match(view.elements.get('#history-items').innerHTML,/Item 44/);
+  await view.elements.get('#refresh').listeners.click();
+  assert.equal(view.elements.get('#history-search').value,'special note');
+  assert.equal(view.elements.get('#history-status-filter').value,'Sold');
+  assert.match(view.elements.get('#history-count').textContent,/1–1 of 1/);
+});
+
+it('does not invent summary totals when imported fields are missing and clears the new summaries on expiry', async () => {
+  const history = historyFixture();history.sheet.periods.push({label:'Unknown',revenue:null,recordedProfit:null,rowCount:1});
+  let expired = false;
+  const view = await harness(undefined,async()=>expired?{ok:false,status:401,json:async()=>({error:'Unauthorized'})}:{ok:true,json:async()=>history});
+  await view.initial;
+  const metrics=view.elements.get('#history-metrics').innerHTML;
+  assert.doesNotMatch(metrics,/\$12\.00|\$4\.00/,'Partial imported period totals cannot look complete');
+  assert.match(metrics,/Recorded sheet profit/);
+  expired=true;await view.elements.get('#refresh').listeners.click();
+  for(const selector of ['#history-metrics','#history-count','#history-period-filter','#history-status-filter'])assert.equal(view.elements.get(selector).innerHTML,'',selector);
+  for(const selector of ['#history-search','#history-period-filter','#history-status-filter','#history-prev','#history-next'])assert.equal(view.elements.get(selector).disabled,true,selector);
+});
+
+
+it('labels owner corrections and incomplete historical profit prominently without changing website figures',async()=>{
+  const history=historyFixture();history.sheet.hasEdits=true;history.sheet.totals={profitIncomplete:true};history.sheet.periods[0].profitIncomplete=true;
+  const view=await harness(undefined,async()=>({ok:true,json:async()=>history}));await view.initial;
+  assert.equal(view.elements.get('#history-title').textContent,'Owner-corrected history');
+  assert.equal(view.elements.get('#history-mode').textContent,'Owner corrections included');
+  assert.match(view.elements.get('#history-source').innerHTML,/Includes owner corrections/);
+  assert.match(view.elements.get('#history-chart').innerHTML,/Owner-corrected history revenue/);
+  assert.match(view.elements.get('#history-metrics').innerHTML,/Recorded profit \(partial\)/);
+  assert.match(view.elements.get('#history-metrics').innerHTML,/Missing profit excluded/);
+  assert.equal(view.elements.get('#history-incomplete').classList.contains('hidden'),false);
+  assert.match(view.elements.get('#history-incomplete').textContent,/Missing profit values are excluded/);
+  assert.match(view.elements.get('#history-periods').innerHTML,/Incomplete · missing values excluded/);
+  assert.match(view.elements.get('#history-profit-note').textContent,/Original source values remain available/);
+  assert.match(view.elements.get('#history-row-note').textContent,/Owner corrections are included/);
+  assert.match(view.elements.get('#metrics').innerHTML,/\$150\.00/);
 });
