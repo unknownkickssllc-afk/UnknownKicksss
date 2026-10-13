@@ -22,23 +22,32 @@ it("renders stored business text safely in every OS table and member option", as
     referralPrograms: [{ name: attack }],
   };
   const elements = new Map();
+  // Mirror only elements present in the real page. Inventing missing elements
+  // would hide runtime failures caused by stale or incorrect DOM selectors.
+  const markup = html.replace(/<script>[\s\S]*?<\/script>/g, "");
+  for (const match of markup.matchAll(/<[^>]*\bid=["']([^"']+)["'][^>]*>/g)) {
+    elements.set(`#${match[1]}`, {
+      innerHTML: "", textContent: "", classList: { add() {}, remove() {} },
+    });
+  }
+  const requests = [];
   const context = vm.createContext({
     document: {
       querySelector(selector) {
-        if (!elements.has(selector)) elements.set(selector, {
-          innerHTML: "", textContent: "", classList: { add() {}, remove() {} },
-        });
-        return elements.get(selector);
+        return elements.get(selector) || null;
       },
       querySelectorAll() { return []; },
     },
     async fetch(url) {
+      requests.push(url);
       assert.equal(url, "/api/os/dashboard");
       return { ok: true, async json() { return dashboard; } };
     },
   });
   // The inline script's final expression is load(), so await the actual render.
   await vm.runInContext(script, context, { timeout: 1000 });
+  assert.deepEqual(requests, ["/api/os/dashboard"], "Initial page load must fetch the dashboard");
+  assert.match(elements.get("#metric-grid")?.innerHTML || "", /Buying capacity/, "Initial dashboard render must finish");
 
   for (const selector of [
     "#capacity-table", "#recent-deals", "#funding-member", "#funding-table",
