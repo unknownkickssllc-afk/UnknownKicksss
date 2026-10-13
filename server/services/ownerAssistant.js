@@ -90,13 +90,44 @@ async function createOwnerDraft(message, options = {}) {
   const result = await generate({message:message.trim(),model:env.AI_GATEWAY_MODEL || DEFAULT_MODEL,today:easternDate(options.now),signal:AbortSignal.timeout(20000)});
   return completeQuestions(validateDraft(result));
 }
+// Gateway wraps APICallError: the original wire error remains in cause.data or
+// cause.responseBody. Read only structured identifiers, never provider prose.
+function gatewayErrorSignals(error) {
+  const codes = new Set(), names = new Set(), statuses = new Set(), seen = new Set();
+  const queue = [{value:error,depth:0}];
+  let examined = 0;
+  while (queue.length && examined++ < 32) {
+    let {value,depth} = queue.shift();
+    if (typeof value === 'string') {
+      if (value.length > 16384 || !value.trim().startsWith('{')) continue;
+      try { value = JSON.parse(value); } catch (_) { continue; }
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value) || seen.has(value)) continue;
+    seen.add(value);
+    for (const key of ['code','type']) if (typeof value[key] === 'string') codes.add(value[key]);
+    if (typeof value.name === 'string') names.add(value.name);
+    for (const key of ['statusCode','status']) if (Number.isInteger(value[key])) statuses.add(value[key]);
+    if (depth < 6) for (const key of ['cause','data','responseBody','response','error','param']) {
+      if (value[key] != null) queue.push({value:value[key],depth:depth+1});
+    }
+  }
+  return {codes,names,statuses};
+}
 function publicAssistantError(error) {
-  if (['INVALID_MESSAGE','NOT_CONFIGURED','INVALID_DRAFT'].includes(error?.code)) return {status:error.status,error:error.message};
-  const statuses = [error?.statusCode,error?.status,error?.cause?.statusCode,error?.cause?.status];
-  if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return {status:504,error:'The helper took too long. Try again with one short transaction.'};
-  if (statuses.includes(401) || statuses.includes(403)) return {status:503,error:'The AI helper needs its connection checked. You can still add records manually.'};
-  if (statuses.includes(402)) return {status:503,error:'The AI helper needs available credits or billing setup. You can still add records manually.'};
-  if (statuses.includes(429)) return {status:429,error:'The AI helper is busy. Please wait a minute and try again.'};
-  return {status:502,error:'The helper could not prepare a draft. Please retry or enter the record manually.'};
+  const local = {
+    INVALID_MESSAGE:{status:400,code:'INVALID_MESSAGE',error:'Describe one transaction in 1–3,000 characters.'},
+    NOT_CONFIGURED:{status:503,code:'AI_NOT_CONFIGURED',error:'The AI helper is not connected yet. You can still add or edit records manually.'},
+    INVALID_DRAFT:{status:502,code:'INVALID_DRAFT',error:'The helper could not prepare a reliable draft. Try one transaction with its amount and date.'},
+  };
+  if (Object.hasOwn(local,error?.code)) return {...local[error.code]};
+  const {codes,names,statuses} = gatewayErrorSignals(error);
+  if (codes.has('customer_verification_required')) return {status:503,code:'AI_BILLING_VERIFICATION_REQUIRED',error:'Vercel requires billing verification before the AI helper can run. Complete the billing details in Vercel, then try again. Manual entry still works.'};
+  if (codes.has('insufficient_credits') || statuses.has(402)) return {status:503,code:'AI_CREDITS_REQUIRED',error:'The AI helper needs available credits or billing setup. You can still add records manually.'};
+  if (names.has('AbortError') || names.has('TimeoutError') || names.has('GatewayTimeoutError') || statuses.has(408) || statuses.has(504)) return {status:504,code:'AI_TIMEOUT',error:'The helper took too long. Try again with one short transaction.'};
+  if (codes.has('model_not_found') || names.has('GatewayModelNotFoundError')) return {status:503,code:'AI_MODEL_UNAVAILABLE',error:'The AI helper’s configured model is unavailable. Its model access or configuration needs to be checked. Manual entry still works.'};
+  if (codes.has('authentication_error') || names.has('GatewayAuthenticationError') || statuses.has(401)) return {status:503,code:'AI_AUTHENTICATION_REQUIRED',error:'The AI helper’s connection needs to be checked in Vercel. You can still add records manually.'};
+  if (codes.has('rate_limit_exceeded') || statuses.has(429)) return {status:429,code:'AI_RATE_LIMITED',error:'The AI helper is busy. Please wait a minute and try again.'};
+  if (codes.has('forbidden') || names.has('GatewayForbiddenError') || statuses.has(403)) return {status:503,code:'AI_ACCESS_DENIED',error:'Vercel has blocked access to the AI helper’s model. Check AI Gateway access and project settings. Manual entry still works.'};
+  return {status:502,code:'AI_UNAVAILABLE',error:'The helper could not prepare a draft. Please retry or enter the record manually.'};
 }
 module.exports = { createOwnerDraft, validateDraft, publicAssistantError, easternDate, systemPrompt, outputSchema, MAX_MESSAGE_LENGTH };
