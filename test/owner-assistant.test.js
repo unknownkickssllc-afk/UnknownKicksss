@@ -10,7 +10,7 @@ it('uses bounded structured generation with the owner message only and no saving
   const result=await createOwnerDraft('Paid $24 shipping today',{env:{},now:new Date('2026-10-14T02:00:00Z'),generate:async value=>{options=value;return expense();}});
   assert.deepEqual(result,expense());
   assert.equal(options.message,'Paid $24 shipping today');
-  assert.equal(options.model,'openai/gpt-5.4-mini');
+  assert.equal(options.model,'openai/gpt-5.4-nano');
   assert.equal(options.today,'2026-10-13');
   assert.ok(options.signal instanceof AbortSignal);
   assert.deepEqual(Object.keys(options).sort(),['message','model','signal','today']);

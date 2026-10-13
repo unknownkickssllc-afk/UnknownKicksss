@@ -1,4 +1,4 @@
-const DEFAULT_MODEL = 'openai/gpt-5.4-mini';
+const DEFAULT_MODEL = 'openai/gpt-5.4-nano';
 const MAX_MESSAGE_LENGTH = 3000;
 const CATEGORIES = ['website', 'business_cards', 'ads', 'shipping', 'packaging', 'domain', 'software', 'other'];
 const FIELDS = {
