@@ -16,10 +16,11 @@
     "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
+    "ai": "7.0.139",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.7.0",
     "cookie-session": "^2.1.1",

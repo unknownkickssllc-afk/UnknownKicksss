@@ -123,6 +123,15 @@ describe("admin authentication through the deployment entry point", () => {
       ["GET", "/api/admin/products"],
       ["GET", "/api/os/dashboard"],
       ["GET", "/api/os/history"],
+      ["PATCH", "/api/os/history/references/fixture-capacity"],
+      ["PATCH", "/api/os/history/items/fixture-item"],
+      ["PATCH", "/api/os/history/expenses/fixture-expense"],
+      ["POST", "/api/os/assistant/draft"],
+      ["PATCH", "/api/os/funding-accounts/1"],
+      ["PATCH", "/api/os/deals/1"],
+      ["PATCH", "/api/os/consignments/1"],
+      ["PATCH", "/api/os/expenses/1"],
+      ["PATCH", "/api/os/referral-programs/1"],
       ["GET", "/api/os/analytics"],
       ["PUT", "/api/os/analytics/product-costs/1"],
       ["PUT", "/api/os/analytics/item-costs/1"],
@@ -192,6 +201,28 @@ describe("admin authentication through the deployment entry point", () => {
     const analytics = await (await server.request("/api/os/analytics", { headers: { cookie } })).json();
     assert.equal(analytics.summary.revenue, 100, "period-only spreadsheet history does not create dated paid orders");
     assert.equal(analytics.finance.recordCounts.accounts, 0);
+  });
+
+  it("saves admin history edits privately and rejects invalid or stale changes", async () => {
+    const { cookie } = await login(server);
+    const url = "/api/os/history/references/fixture-capacity";
+    const beforeCalls = await server.stats();
+    const invalid = await server.request(url, { ...json({ patch: { source_ref: "Replace source" }, expectedUpdatedAt: null }, cookie), method: "PATCH" });
+    assert.equal(invalid.status, 400);
+    assert.equal(await server.stats(), beforeCalls, "invalid updates must not touch business data");
+    const saved = await server.request(url, { ...json({ patch: { detail: "Owner clarification" }, expectedUpdatedAt: null }, cookie), method: "PATCH" });
+    assert.equal(saved.status, 200);
+    assertPrivate(saved);
+    const row = (await saved.json()).row;
+    assert.equal(row.detail, "Owner clarification");
+    assert.equal(row.editing.original.detail, "Historical buying capacity, not cash");
+    assert.ok(row.editing.updatedAt);
+    const stale = await server.request(url, { ...json({ patch: { detail: "Stale window" }, expectedUpdatedAt: null }, cookie), method: "PATCH" });
+    assert.equal(stale.status, 409);
+    assertPrivate(stale);
+    const history = await (await server.request("/api/os/history", { headers: { cookie } })).json();
+    assert.equal(history.records[0].detail, "Owner clarification");
+    assert.equal(history.records[0].source_ref, "Synthetic fixture");
   });
 
   it("returns JSON for wrong or malformed access codes without issuing a session", async () => {

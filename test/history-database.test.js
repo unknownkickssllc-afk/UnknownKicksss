@@ -4,6 +4,27 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { PGlite } = require("@electric-sql/pglite");
 const migration = fs.readFileSync(path.join(__dirname, "../supabase/migrations/20261013191734_import_business_history.sql"), "utf8");
+const overridesMigration = fs.readFileSync(path.join(__dirname, "../supabase/migrations/20261013203019_add_history_overrides.sql"), "utf8");
+
+test("history corrections have private RLS, stable keys, and atomic version predicates", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; GRANT USAGE ON SCHEMA public TO service_role;");
+    await db.exec(overridesMigration);
+    await db.exec(overridesMigration);
+    const security = (await db.query("SELECT relrowsecurity AS rls, has_table_privilege('anon',oid,'SELECT') AS anon_read, has_table_privilege('authenticated',oid,'UPDATE') AS client_write FROM pg_class WHERE relname = 'os_history_overrides'")).rows[0];
+    assert.deepEqual(security, { rls: true, anon_read: false, client_write: false });
+    await db.exec("SET ROLE service_role;");
+    await db.exec("INSERT INTO os_history_overrides(entity_type, source_key, patch, updated_at) VALUES ('items', 'fixture-item', '{\"notes\":\"Original edit\"}', '2026-01-01T00:00:00.000Z')");
+    await assert.rejects(db.exec("INSERT INTO os_history_overrides(entity_type, source_key) VALUES ('items', 'fixture-item')"), /duplicate key/);
+    const first = await db.query("UPDATE os_history_overrides SET patch = '{\"notes\":\"First save\"}', updated_at = '2026-01-01T00:00:00.001Z' WHERE entity_type = 'items' AND source_key = 'fixture-item' AND updated_at = '2026-01-01T00:00:00.000Z' RETURNING patch");
+    const stale = await db.query("UPDATE os_history_overrides SET patch = '{\"notes\":\"Stale save\"}' WHERE entity_type = 'items' AND source_key = 'fixture-item' AND updated_at = '2026-01-01T00:00:00.000Z' RETURNING patch");
+    assert.equal(first.rows.length, 1);
+    assert.equal(stale.rows.length, 0);
+    await db.exec("RESET ROLE; SET ROLE anon;");
+    await assert.rejects(db.query("SELECT * FROM os_history_overrides"), /permission denied/);
+  } finally { await db.close(); }
+});
 
 test("history imports are private, preserve uncertainty, and are idempotent by source key", async () => {
   const db = new PGlite();
