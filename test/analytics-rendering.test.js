@@ -13,11 +13,15 @@ const fixture = () => ({
   referrals: [{ name: 'Test referral', orders: 1, revenue: 50, commission: 5, netBeforeCosts: 45 }],
   expenseCategories: [{ category: 'Test category', amount: 10 }],
   attention: [{ severity: 'warning', title: 'Missing costs', detail: 'Record item costs before using margins.' }],
-  finance: { availableCapital: 100, businessDebt: 50, consignmentPending: 10, consignmentActive: 20 },
+  finance: { availableCapital: 100, businessDebt: 50, consignmentPending: 10, consignmentActive: 20, recordCounts: { accounts: 1, consignments: 1 } },
   costs: { products: [{ id: 'p1', name: 'Test item', unitCost: 20 }], missingItems: [{ id: 'item1', orderNumber: 'TEST-1', productName: 'Test item', quantity: 2, orderDate: '2026-10-12' }] },
 });
+const historyFixture = () => ({
+  records:[{source_key:'synthetic-source',section:'capital',title:'Synthetic capital note',reported_on:null,confidence:'derived',value_text:'Illustrative historical reference',detail:'Do not treat this as a current balance.',source_ref:'Synthetic message reference',sort_order:1}],
+  sheet:{importedAt:'2026-10-13T02:00:00Z',sourceTitle:'Synthetic history sheet',sourceUrl:'https://example.com/test-sheet',periods:[{label:'Aug / Sep (combined source period)',revenue:12,recordedProfit:4,purchaseCost:8,rowCount:2,notes:['Combined period retained']}],items:[{period:'Aug / Sep (combined source period)',sourceRow:4,item:'Synthetic item',size:'Test size',status:'Source stock',quantity:2,unitCost:null,salePrice:6,recordedProfit:null,purchaseDate:null,saleDate:null,notes:['Original notes retained']}],expenses:[{sourceRow:9,description:'Synthetic expense',amount:2,date:null,notes:'Date not established'}],notes:['Source formulas require review.']},
+});
 
-async function harness(fetcher = async () => ({ ok: true, json: async () => fixture() })) {
+async function harness(fetcher = async () => ({ ok: true, json: async () => fixture() }), historyFetcher = async () => ({ok:true,json:async()=>({records:[],sheet:null})})) {
   const html = await readFile(path.join(__dirname, '../server/views/analytics.html'), 'utf8');
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, 'Analytics must include its client script');
@@ -42,11 +46,12 @@ async function harness(fetcher = async () => ({ ok: true, json: async () => fixt
   };
   const context = vm.createContext({
     document, window: { addEventListener(type, handler) { windowListeners[type] = handler; } },
-    async fetch(url, options) { requests.push({ url, options }); return fetcher(url, options); },
+    async fetch(url, options) { requests.push({ url, options }); return url === '/api/os/history' ? historyFetcher(url, options) : fetcher(url, options); },
+    URL,
     setInterval(handler, ms) { intervals.push({ handler, ms }); return intervals.length; },
   });
   const initial = vm.runInContext(script, context, { timeout: 1000 });
-  return { html, context, initial, elements, requests, intervals, document, documentListeners, windowListeners };
+  return { html, context, initial, elements, requests, websiteRequests:()=>requests.filter(request=>request.url.startsWith('/api/os/analytics?')), intervals, document, documentListeners, windowListeners };
 }
 
 it('renders real analytics with safe stored text and unknown-cost gaps instead of fabricated profit', async () => {
@@ -85,7 +90,7 @@ it('renders real analytics with safe stored text and unknown-cost gaps instead o
   assert.match(view.elements.get('#daily-table').innerHTML, /Needs costs/);
   assert.match(view.elements.get('#item-costs').innerHTML, /Oct 12, 2026/, 'Historical sale dates use Eastern time');
   assert.match(view.elements.get('#missing-cost-period').textContent, /newest 200 shown/);
-  assert.match(view.html, /In-person, DM, and consignment sales from your Google Sheet are not included yet/);
+  assert.match(view.html, /Imported spreadsheet history stays in its own section above/);
   assert.equal(view.elements.get('#error-message').classList.contains('hidden'), true);
   assert.equal(view.context.compromised, undefined);
 });
@@ -118,13 +123,14 @@ it('refreshes only while visible, serializes requests, and never replaces a cost
     return { ok: true, json: async () => fixture() };
   });
   assert.equal(view.intervals[0].ms, 60000);
-  await view.windowListeners.focus();
+  const focusRefresh = view.windowListeners.focus();
   await view.intervals[0].handler();
   assert.equal(view.requests.length, 1, 'Repeated refreshes cannot overlap');
   release();
   await view.initial;
+  await focusRefresh;
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(view.requests.length, 2, 'Coalesce waiting refreshes into one follow-up');
+  assert.equal(view.websiteRequests().length, 2, 'Coalesce waiting refreshes into one follow-up');
   assert.equal(maxActive, 1);
   view.elements.get('#product-costs').innerHTML = 'Unsaved input still here';
   view.elements.get('#cost-setup').dirtyNode = {};
@@ -159,7 +165,7 @@ it('discards a response for a superseded date range and reloads the newly select
   release();
   await view.initial;
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(view.requests.map(request => request.url), ['/api/os/analytics?days=30', '/api/os/analytics?days=90']);
+  assert.deepEqual(view.websiteRequests().map(request => request.url), ['/api/os/analytics?days=30', '/api/os/analytics?days=90']);
   assert.match(view.elements.get('#period-label').textContent, /previous 90 days/);
 });
 
@@ -209,6 +215,69 @@ it('stops refreshing on session expiry and offers a sign-in link without showing
   assert.match(view.elements.get('#update-status').textContent, /Updates paused/);
   await view.intervals[0].handler();
   await view.windowListeners.focus();
-  assert.equal(view.requests.length, 2);
+  assert.equal(view.requests.length, 3);
   assert.match(view.html, /href="\/admin\/">Sign in to continue/);
+});
+
+it('keeps spreadsheet source periods separate, escapes all historical content, and shows missing current balances honestly', async () => {
+  const history=historyFixture(),data=fixture(),attack='\"><img src=x onerror="globalThis.compromised=true">&\'';
+  history.sheet.sourceTitle=attack;
+  history.sheet.periods[0].notes=[attack];
+  history.sheet.items[0].item=attack;
+  history.sheet.expenses[0].description=attack;
+  history.sheet.notes=[attack];
+  history.records[0]={...history.records[0],title:attack,detail:{note:attack},source_ref:attack};
+  data.finance.recordCounts={accounts:0,consignments:0};
+  const view=await harness(async()=>({ok:true,json:async()=>data}),async()=>({ok:true,json:async()=>history}));
+  await view.initial;
+  assert.match(view.elements.get('#metrics').innerHTML,/\$150\.00/,'Imported revenue does not change website totals');
+  assert.doesNotMatch(view.elements.get('#metrics').innerHTML,/\$12\.00/);
+  assert.match(view.elements.get('#history-chart').innerHTML,/Aug \/ Sep \(combined source period\)/);
+  assert.match(view.elements.get('#history-chart').innerHTML,/role="img"/);
+  assert.match(view.elements.get('#history-periods').innerHTML,/\$12\.00/);
+  assert.match(view.elements.get('#history-periods').innerHTML,/Recorded profit/);
+  assert.match(view.elements.get('#history-source').innerHTML,/Oct 12, 2026/);
+  assert.match(view.elements.get('#history-source').innerHTML,/rel="noopener noreferrer"/);
+  assert.match(view.elements.get('#history-items').innerHTML,/Snapshot quantity/);
+  assert.match(view.elements.get('#history-items').innerHTML,/Not recorded/);
+  assert.match(view.elements.get('#history-references').innerHTML,/Report date not established/);
+  assert.match(view.elements.get('#history-references').innerHTML,/Estimate · derived from source/);
+  for(const selector of ['#history-source','#history-notes','#history-periods','#history-items','#history-expenses','#history-references']){
+    const rendered=view.elements.get(selector).innerHTML;
+    assert.doesNotMatch(rendered,/<img\b|<script\b/i,selector);
+    assert.match(rendered,/&lt;img/,selector);
+    assert.match(rendered,/&quot;/,selector);
+  }
+  assert.match(view.elements.get('#finance').innerHTML,/No current balances recorded/);
+  assert.doesNotMatch(view.elements.get('#finance').innerHTML,/\$0\.00|\$100\.00/);
+  const before=view.requests.filter(request=>request.url==='/api/os/history').length;
+  await view.windowListeners.focus();
+  assert.equal(view.requests.filter(request=>request.url==='/api/os/history').length,before,'Automatic website refresh does not reload the historical snapshot');
+});
+
+it('rejects unsafe spreadsheet links and labels stale history when its API fails', async () => {
+  const history=historyFixture();history.sheet.sourceUrl='javascript:alert(1)';
+  let unavailable=false;
+  const view=await harness(undefined,async()=>unavailable?{ok:false,status:503,json:async()=>({error:'History unavailable'})}:{ok:true,json:async()=>history});
+  await view.initial;
+  assert.doesNotMatch(view.elements.get('#history-source').innerHTML,/href=|javascript:/);
+  const previous=view.elements.get('#history-periods').innerHTML;
+  unavailable=true;await view.elements.get('#refresh').listeners.click();
+  assert.equal(view.elements.get('#history-periods').innerHTML,previous);
+  assert.match(view.elements.get('#history-warning').textContent,/last successfully loaded history/);
+  assert.equal(view.elements.get('#history-warning').classList.contains('hidden'),false);
+  const failed=await harness(undefined,async()=>({ok:false,status:503,json:async()=>({error:'History unavailable'})}));
+  await failed.initial;
+  assert.match(failed.elements.get('#history-source').textContent,/History unavailable/);
+  assert.match(failed.elements.get('#history-warning').textContent,/Import availability has not been established/);
+});
+
+it('clears both imported history and website data when the history endpoint rejects an expired session', async () => {
+  let expired=false;
+  const view=await harness(undefined,async()=>expired?{ok:false,status:401,json:async()=>({error:'Unauthorized'})}:{ok:true,json:async()=>historyFixture()});
+  await view.initial;
+  assert.match(view.elements.get('#history-periods').innerHTML,/combined source period/);
+  expired=true;await view.elements.get('#refresh').listeners.click();
+  for(const selector of ['#history-periods','#history-source','#history-items','#history-references','#metrics','#finance'])assert.equal(view.elements.get(selector).innerHTML,'',selector+' must clear on expiry');
+  assert.equal(view.elements.get('#auth-warning').classList.contains('hidden'),false);
 });

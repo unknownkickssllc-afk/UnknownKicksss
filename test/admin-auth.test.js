@@ -122,6 +122,7 @@ describe("admin authentication through the deployment entry point", () => {
       ["GET", "/api/admin/me"],
       ["GET", "/api/admin/products"],
       ["GET", "/api/os/dashboard"],
+      ["GET", "/api/os/history"],
       ["GET", "/api/os/analytics"],
       ["PUT", "/api/os/analytics/product-costs/1"],
       ["PUT", "/api/os/analytics/item-costs/1"],
@@ -173,6 +174,24 @@ describe("admin authentication through the deployment entry point", () => {
     for (const url of ["/analytics.html", "/admin/analytics.html", "/server/views/analytics.html"]) {
       assert.equal((await server.request(url)).status, 404);
     }
+  });
+
+  it("keeps historical source data private and separate from current financial totals", async () => {
+    const { cookie } = await login(server);
+    const response = await server.request("/api/os/history", { headers: { cookie } });
+    assert.equal(response.status, 200);
+    assertPrivate(response);
+    const history = await response.json();
+    assert.equal(history.records[0].confidence, "user_reported");
+    assert.equal(history.records[0].value_text, "$120–$180");
+    assert.equal(history.sheet.periods[0].label, "June and July");
+    assert.equal(history.sheet.periods[0].revenue, 200);
+    assert.equal(history.sheet.sourceTitle, "Fixture sheet");
+    const dashboard = await (await server.request("/api/os/dashboard", { headers: { cookie } })).json();
+    assert.equal(dashboard.totals.buyingCapacity, 0, "historical capacity is not a current account balance");
+    const analytics = await (await server.request("/api/os/analytics", { headers: { cookie } })).json();
+    assert.equal(analytics.summary.revenue, 100, "period-only spreadsheet history does not create dated paid orders");
+    assert.equal(analytics.finance.recordCounts.accounts, 0);
   });
 
   it("returns JSON for wrong or malformed access codes without issuing a session", async () => {

@@ -1,9 +1,20 @@
 const express = require("express");
 const { supabase } = require("../lib/supabase");
 const { requireAdmin } = require("../middleware/auth");
+const { loadBusinessHistory } = require("../services/businessHistory");
 
 const router = express.Router();
 router.use(requireAdmin);
+
+router.get("/history", async (_req, res) => {
+  try { res.json(await loadBusinessHistory(supabase())); }
+  catch (error) {
+    const missingSchema = ["42P01", "PGRST200", "PGRST205"].includes(error.code);
+    res.status(missingSchema ? 503 : 500).json({ error: missingSchema
+      ? "Business history is still being prepared. Your existing records are unchanged."
+      : "Business history could not be loaded. Please refresh." });
+  }
+});
 
 async function table(name) {
   return supabase().from(name);
