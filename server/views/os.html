@@ -37,6 +37,7 @@
       </header>
 
       
+      <div id="auth-warning" class="notice hidden">Your session has expired. <a href="/admin/">Sign in to continue.</a></div>
       <div id="schema-warning" class="notice hidden"></div>
 
       <section id="dashboard" class="section active">
@@ -169,7 +170,8 @@
   <script>let state=null;
 const $=(s)=>document.querySelector(s);
 const money=(n)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));
-function table(headers,rows){if(!rows.length)return '<p class="muted">Nothing here yet.</p>';return '<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
+const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function table(headers,rows){if(!rows.length)return '<p class="muted">Nothing here yet.</p>';return '<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th>'+escapeHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
 async function api(path,opts={}){const r=await fetch(path,{headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'Request failed');e.status=r.status;throw e}return j}
 function membersByName(name){return state.members.find(m=>m.name.toLowerCase()===name.toLowerCase())}
 function render(){
@@ -178,15 +180,15 @@ function render(){
   ['Buying capacity',money(t.buyingCapacity)],['Business debt tracked',money(t.businessDebt)],['Inventory cost tied up',money(t.inventoryCost)],
   ['Pending consignment',money(t.pendingConsignmentPayout)],['Active consignment potential',money(t.activeConsignmentPayout)],['Operating expenses logged',money(t.operatingExpenses)]
  ].map(([l,v])=>'<div class="metric"><span>'+l+'</span><strong>'+v+'</strong></div>').join('');
- $('#capacity-table').innerHTML=table(['Partner','Source','Available','Business balance'],state.accounts.map(a=>'<tr><td>'+(a.business_members?.name||'Business')+'</td><td>'+a.label+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td></tr>'));
+ $('#capacity-table').innerHTML=table(['Partner','Source','Available','Business balance'],state.accounts.map(a=>'<tr><td>'+escapeHtml(a.business_members?.name||'Business')+'</td><td>'+escapeHtml(a.label)+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td></tr>'));
  $('#consignment-summary').innerHTML='<div class="metric"><span>Pending + active expected</span><strong>'+money(t.pendingConsignmentPayout+t.activeConsignmentPayout)+'</strong></div>';
- $('#recent-deals').innerHTML=table(['Deal','Type','Cost','Status'],state.deals.slice(0,8).map(d=>'<tr><td>'+d.deal_code+' — '+d.title+'</td><td>'+d.ownership_type+'</td><td>'+money(d.total_cost)+'</td><td><span class="pill">'+d.status+'</span></td></tr>'));
- const options=state.members.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');$('#funding-member').innerHTML=options;
- $('#funding-table').innerHTML=table(['Partner','Label','Type','Available','Debt','APR'],state.accounts.map(a=>'<tr><td>'+(a.business_members?.name||'—')+'</td><td>'+a.label+'</td><td>'+a.account_type+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td><td>'+(a.apr_percent??'—')+'</td></tr>'));
- $('#deals-table').innerHTML=table(['Code','Title','Ownership','Cost','Status'],state.deals.map(d=>'<tr><td>'+d.deal_code+'</td><td>'+d.title+'</td><td>'+d.ownership_type+'</td><td>'+money(d.total_cost)+'</td><td>'+d.status+'</td></tr>'));
- $('#consignment-table').innerHTML=table(['Item','Store','Cost','List','Payout','Status'],state.consignments.map(c=>'<tr><td>'+c.item_name+'</td><td>'+(c.partner_name||'—')+'</td><td>'+money(c.original_cost)+'</td><td>'+money(c.list_price)+'</td><td>'+money(c.expected_payout)+'</td><td>'+c.payout_status+'</td></tr>'));
- $('#expenses-table').innerHTML=table(['Date','Description','Category','Amount'],state.expenses.map(e=>'<tr><td>'+e.expense_date+'</td><td>'+e.description+'</td><td>'+e.category+'</td><td>'+money(e.amount)+'</td></tr>'));
- $('#referral-table').innerHTML=table(['Program','Customer off','Referrer','Min profit'],state.referralPrograms.map(r=>'<tr><td>'+r.name+'</td><td>'+money(r.customer_discount)+'</td><td>'+money(r.referrer_reward)+'</td><td>'+money(r.min_pre_promo_profit)+'</td></tr>'));
+ $('#recent-deals').innerHTML=table(['Deal','Type','Cost','Status'],state.deals.slice(0,8).map(d=>'<tr><td>'+escapeHtml(d.deal_code)+' — '+escapeHtml(d.title)+'</td><td>'+escapeHtml(d.ownership_type)+'</td><td>'+money(d.total_cost)+'</td><td><span class="pill">'+escapeHtml(d.status)+'</span></td></tr>'));
+ const options=state.members.map(m=>'<option value="'+escapeHtml(m.id)+'">'+escapeHtml(m.name)+'</option>').join('');$('#funding-member').innerHTML=options;
+ $('#funding-table').innerHTML=table(['Partner','Label','Type','Available','Debt','APR'],state.accounts.map(a=>'<tr><td>'+escapeHtml(a.business_members?.name||'—')+'</td><td>'+escapeHtml(a.label)+'</td><td>'+escapeHtml(a.account_type)+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td><td>'+escapeHtml(a.apr_percent??'—')+'</td></tr>'));
+ $('#deals-table').innerHTML=table(['Code','Title','Ownership','Cost','Status'],state.deals.map(d=>'<tr><td>'+escapeHtml(d.deal_code)+'</td><td>'+escapeHtml(d.title)+'</td><td>'+escapeHtml(d.ownership_type)+'</td><td>'+money(d.total_cost)+'</td><td>'+escapeHtml(d.status)+'</td></tr>'));
+ $('#consignment-table').innerHTML=table(['Item','Store','Cost','List','Payout','Status'],state.consignments.map(c=>'<tr><td>'+escapeHtml(c.item_name)+'</td><td>'+escapeHtml(c.partner_name||'—')+'</td><td>'+money(c.original_cost)+'</td><td>'+money(c.list_price)+'</td><td>'+money(c.expected_payout)+'</td><td>'+escapeHtml(c.payout_status)+'</td></tr>'));
+ $('#expenses-table').innerHTML=table(['Date','Description','Category','Amount'],state.expenses.map(e=>'<tr><td>'+escapeHtml(e.expense_date)+'</td><td>'+escapeHtml(e.description)+'</td><td>'+escapeHtml(e.category)+'</td><td>'+money(e.amount)+'</td></tr>'));
+ $('#referral-table').innerHTML=table(['Program','Customer off','Referrer','Min profit'],state.referralPrograms.map(r=>'<tr><td>'+escapeHtml(r.name)+'</td><td>'+money(r.customer_discount)+'</td><td>'+money(r.referrer_reward)+'</td><td>'+money(r.min_pre_promo_profit)+'</td></tr>'));
 }
 async function load(){
  $('#auth-warning').classList.add('hidden');$('#schema-warning').classList.add('hidden');

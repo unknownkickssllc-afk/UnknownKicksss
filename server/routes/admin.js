@@ -16,7 +16,6 @@ const { validateProductPayload } = require("../lib/validateProduct");
 const router = express.Router();
 
 const uploadsRoot = path.join(__dirname, "..", "..", "public", "uploads");
-if (!fs.existsSync(uploadsRoot)) fs.mkdirSync(uploadsRoot, { recursive: true });
 
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -59,8 +58,7 @@ router.post("/logout", (req, res) => {
   res.json({ success: true });
 });
 
-router.get("/me", (req, res) => {
-  if (!req.session?.adminAuthenticated) return res.status(401).json({ error: "Unauthorized" });
+router.get("/me", requireAdmin, (req, res) => {
   res.json({ authenticated: true });
 });
 
