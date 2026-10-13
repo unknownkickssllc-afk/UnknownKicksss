@@ -8,6 +8,15 @@ const tables = new Map([
   ["budget_buckets", []],
   ["operating_expenses", []],
   ["referral_programs", []],
+  ["products", [{ id: 1, name: "Fixture shirt", product_variants: [{ stock: 3 }], os_product_costs: { unit_cost: 20 } }]],
+  ["orders", [
+    { id: 1, order_number: "FIXTURE-PAID", stripe_session_id: "pi_fixture", created_at: new Date().toISOString(), payment_status: "paid", total: 100, customer_id: 1, commissions: [{ amount: 5 }], order_items: [{ id: 1, product_id: 1, product_name: "Fixture shirt", quantity: 2, line_total: 100, os_order_item_costs: { unit_cost: 20 } }] },
+    { id: 2, order_number: "FIXTURE-PENDING", created_at: new Date().toISOString(), payment_status: "pending", total: 9999, order_items: [] },
+    { id: 3, order_number: "FIXTURE-DUPLICATE", stripe_session_id: "pi_fixture", created_at: new Date().toISOString(), payment_status: "paid", total: 100, order_items: [] },
+  ]],
+  ["order_items", [{ id: 1, orders: { payment_status: "paid" } }]],
+  ["os_product_costs", []],
+  ["os_order_item_costs", []],
 ]);
 let databaseCalls = 0;
 
@@ -23,6 +32,7 @@ function from(name) {
       return query;
     },
     order() { return query; },
+    range(start, end) { result = result.slice(start, end + 1); return query; },
     insert(payload) {
       const rows = (Array.isArray(payload) ? payload : [payload]).map((row) => ({
         id: tables.get(name).length + 1,
@@ -33,6 +43,14 @@ function from(name) {
       return query;
     },
     single() { single = true; return query; },
+    maybeSingle() { single = true; return query; },
+    upsert(payload, { onConflict }) {
+      const existing = tables.get(name).find(row => row[onConflict] === payload[onConflict]);
+      if (existing) Object.assign(existing, payload);
+      else tables.get(name).push({ ...payload });
+      result = [payload];
+      return query;
+    },
     then(resolve, reject) {
       return Promise.resolve({ data: single ? result[0] : result, error: null })
         .then(resolve, reject);

@@ -25,6 +25,7 @@ const storeRoutes = require("./routes/store");
 const checkoutRoutes = require("./routes/checkout");
 const adminRoutes = require("./routes/admin");
 const osRoutes = require("./routes/os");
+const analyticsRoutes = require("./routes/analytics");
 const { requireAdminPage } = require("./middleware/auth");
 
 const app = express();
@@ -120,6 +121,9 @@ app.get(["/admin", "/admin/"], (_req, res) => {
 app.get(["/admin/os", "/admin/os/"], requireAdminPage, (_req, res) => {
   res.sendFile(path.join(__dirname, "views", "os.html"));
 });
+app.get(["/admin/os/analytics", "/admin/os/analytics/"], requireAdminPage, (_req, res) => {
+  res.sendFile(path.join(__dirname, "views", "analytics.html"));
+});
 app.use("/admin", express.static(adminRoot, { redirect: false }));
 
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
@@ -134,6 +138,7 @@ if (!onVercel) {
 app.use("/api", storeRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/os/analytics", analyticsRoutes);
 app.use("/api/os", osRoutes);
 
 app.get("/api/health", async (req, res) => {

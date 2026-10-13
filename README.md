@@ -155,6 +155,18 @@ Stripe Dashboard → Webhooks → Add endpoint:
 - Event: `checkout.session.completed`
 - Copy signing secret → `STRIPE_WEBHOOK_SECRET` on Vercel → Redeploy
 
+## Private analytics
+
+Open **Analytics & growth** in admin at `/admin/os/analytics`. Paid website orders automatically populate date-based revenue, order counts, average order value, gross margin, product comparisons, referral activity, and repeat-customer metrics. The page refreshes every minute while visible. It uses order dates in America/New_York and compares adjacent 30-, 90-, or 365-day periods; today is still in progress.
+
+Before deploying analytics to an existing database, apply `supabase/migrations/20261013171539_automatic_business_analytics.sql`. It adds two private cost tables and a checkout-time cost snapshot trigger, with RLS enabled and client access revoked. It does not alter prices, stock, orders, payment processing, or public storefront pages. Tests run the SQL in an isolated Postgres engine and verify snapshots and permissions.
+
+In **Set up accurate margins**, enter the product purchase cost per unit once. New order items capture that default automatically. Changing a default never rewrites historical costs. Earlier sales remain unknown until their actual item costs are entered separately; missing costs withhold complete margin figures. No sales or costs are fabricated.
+
+Scope: website paid order records only. Google Sheet history and in-person/DM sales are not imported or synchronized by this release. Business OS expenses and funding/consignment records are shown separately. Expected payouts are not received cash. Gross profit excludes fees and overhead; the result from recorded costs subtracts OS expenses and recorded referral commissions, but is not a complete profit-and-loss statement or bank balance. Payment/shipping fees must be entered as expenses to appear. Refunds/disputes and payment reconciliation require separate integration; a cancelled order still marked paid is explicitly flagged. Traffic conversion and advertising ROI are not reported without the necessary tracking/spend data.
+
+Duplicate paid orders with the same nonempty Stripe reference are counted once and flagged for review. Reports paginate database reads and return an explicit error instead of silently truncating totals. Cost changes and analytics endpoints require the same signed admin session; responses are private and not cached.
+
 ### Local dev vs Vercel
 
 - Static files live in `public/` (Vercel serves them from the CDN; locally Express serves the same folder).

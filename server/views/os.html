@@ -17,6 +17,7 @@
         <p class="muted">Money, inventory, consignment, referrals, and growth.</p>
       </div>
       <nav>
+        <a href="/admin/os/analytics" class="nav" style="text-decoration:none">Analytics &amp; growth</a>
         <button class="nav active" data-section="dashboard">Dashboard</button>
         <button class="nav" data-section="capital">Capital</button>
         <button class="nav" data-section="deals">Deals</button>
@@ -195,7 +196,7 @@ async function load(){
  try{state=await api('/api/os/dashboard');render()}
  catch(e){if(e.status===401){$('#auth-warning').classList.remove('hidden')}else{$('#schema-warning').textContent='OS database tables are not active yet. Run supabase/os_v1.sql in Supabase, then refresh. '+e.message;$('#schema-warning').classList.remove('hidden')}}
 }
-document.querySelectorAll('.nav').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.section).classList.add('active');$('#section-title').textContent=b.textContent.trim()}));
+document.querySelectorAll('.nav[data-section]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.section).classList.add('active');$('#section-title').textContent=b.textContent.trim()}));
 $('#refresh-btn').onclick=load;
 function obj(form){return Object.fromEntries(new FormData(form).entries())}
 $('#funding-form').onsubmit=async e=>{e.preventDefault();const d=obj(e.target);d.legacy=e.target.legacy.checked;await api('/api/os/funding-accounts',{method:'POST',body:JSON.stringify(d)});e.target.reset();load()};

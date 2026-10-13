@@ -111,7 +111,7 @@ describe("admin authentication through the deployment entry point", () => {
 
   it("rejects private pages and every OS read/write before touching the database", async () => {
     const beforeCalls = await server.stats();
-    for (const url of ["/admin/os", "/admin/os/"]) {
+    for (const url of ["/admin/os", "/admin/os/", "/admin/os/analytics", "/admin/os/analytics/"]) {
       const response = await server.request(url);
       assert.equal(response.status, 302, url);
       assert.equal(response.headers.get("location"), "/admin/", url);
@@ -122,6 +122,9 @@ describe("admin authentication through the deployment entry point", () => {
       ["GET", "/api/admin/me"],
       ["GET", "/api/admin/products"],
       ["GET", "/api/os/dashboard"],
+      ["GET", "/api/os/analytics"],
+      ["PUT", "/api/os/analytics/product-costs/1"],
+      ["PUT", "/api/os/analytics/item-costs/1"],
       ["POST", "/api/os/funding-accounts"],
       ["POST", "/api/os/deals"],
       ["POST", "/api/os/consignments"],
@@ -129,12 +132,47 @@ describe("admin authentication through the deployment entry point", () => {
       ["POST", "/api/os/referral-programs"],
     ];
     for (const [method, url] of urls) {
-      const response = await server.request(url, method === "POST" ? json({}) : {});
+      const response = await server.request(url, method === "GET" ? {} : { ...json({}), method });
       assert.equal(response.status, 401, `${method} ${url}`);
       assert.deepEqual(await response.json(), { error: "Unauthorized" });
       assertPrivate(response);
     }
     assert.equal(await server.stats(), beforeCalls, "Unauthorized requests must never query business data");
+  });
+
+  it("loads automatic analytics from paid orders only and protects cost updates", async () => {
+    const { cookie } = await login(server);
+    const page = await server.request("/admin/os/analytics", { headers: { cookie } });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /Sales over time/);
+    assertPrivate(page);
+    const response = await server.request("/api/os/analytics?days=30", { headers: { cookie } });
+    assert.equal(response.status, 200);
+    assertPrivate(response);
+    const report = await response.json();
+    assert.equal(report.summary.revenue, 100, "pending payments never become revenue");
+    assert.equal(report.summary.grossProfit, 60);
+    assert.equal(report.summary.orders, 1);
+    assert.ok(report.attention.some(a => a.title === "Duplicate payment references need review"));
+    assert.equal(report.costs.products[0].unitCost, 20);
+    assert.equal(report.daily.length, 30);
+    const beforeCalls = await server.stats();
+    for (const unitCost of [-1, "20", "", 1.234, null]) {
+      const invalid = await server.request("/api/os/analytics/item-costs/1", { ...json({ unitCost }, cookie), method: "PUT" });
+      assert.equal(invalid.status, 400);
+    }
+    assert.equal(await server.stats(), beforeCalls, "invalid costs must not touch the database");
+    for (const path of ["product-costs", "item-costs"]) {
+      const saved = await server.request(`/api/os/analytics/${path}/1`, { ...json({ unitCost: 19.25 }, cookie), method: "PUT" });
+      assert.equal(saved.status, 200);
+      assert.deepEqual(await saved.json(), { ok: true });
+      assertPrivate(saved);
+    }
+    const badPeriod = await server.request("/api/os/analytics?days=999", { headers: { cookie } });
+    assert.equal(badPeriod.status, 400);
+    for (const url of ["/analytics.html", "/admin/analytics.html", "/server/views/analytics.html"]) {
+      assert.equal((await server.request(url)).status, 404);
+    }
   });
 
   it("returns JSON for wrong or malformed access codes without issuing a session", async () => {
