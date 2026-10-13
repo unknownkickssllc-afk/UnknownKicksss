@@ -17,6 +17,8 @@ const tables = new Map([
   ["order_items", [{ id: 1, orders: { payment_status: "paid" } }]],
   ["os_product_costs", []],
   ["os_order_item_costs", []],
+  ["os_historical_records", [{ source_key: "fixture-capacity", section: "capital", title: "Prior capacity", reported_on: "2026-06-01", confidence: "user_reported", value_text: "$120–$180", detail: "Historical buying capacity, not cash", source_ref: "Synthetic fixture", sort_order: 1 }]],
+  ["os_sheet_imports", [{ source_key: "primary-reselling-sheet", imported_at: "2026-10-01T12:00:00Z", source_title: "Fixture sheet", source_url: "https://docs.google.com/spreadsheets/d/fixture/edit", payload: { periods: [{ label: "June and July", revenue: 200, recordedProfit: 30, purchaseCost: 1400, rowCount: 4 }], items: [], expenses: [], notes: ["Period only; exact sale dates missing"] } }]],
 ]);
 let databaseCalls = 0;
 

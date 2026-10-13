@@ -6,6 +6,7 @@
   <title>Unknown Kickss OS</title>
   <link rel="icon" href="/logo.jpg" type="image/jpeg" />
   <style>*{box-sizing:border-box}body{margin:0;background:#0b0b0b;color:#f5f5f5;font-family:Inter,Arial,sans-serif}.shell{min-height:100vh;display:grid;grid-template-columns:260px 1fr}.sidebar{border-right:1px solid #272727;padding:28px 22px;position:sticky;top:0;height:100vh;background:#101010}.logo{width:58px;height:58px;object-fit:cover;border-radius:14px;margin-bottom:22px}.eyebrow{font-size:11px;letter-spacing:.18em;color:#929292;margin:0 0 8px}.sidebar h1{font-size:22px;margin:0 0 7px}.muted{color:#8e8e8e;font-size:13px;line-height:1.5}.sidebar nav{display:grid;gap:8px;margin-top:30px}.nav,.ghost{border:0;background:transparent;color:#aaa;text-align:left;padding:12px 14px;border-radius:10px;cursor:pointer}.nav:hover,.nav.active{background:#1d1d1d;color:#fff}.admin-link{position:absolute;bottom:28px;color:#aaa;text-decoration:none;font-size:13px}main{padding:32px 40px 70px;max-width:1450px;width:100%}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}.topbar h2{margin:0;font-size:30px}.ghost{border:1px solid #303030;text-align:center}.notice{padding:14px 16px;border:1px solid #5f4b1e;background:#211b0d;border-radius:12px;margin-bottom:18px}.hidden{display:none!important}.section{display:none}.section.active{display:block}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}.metric{background:#151515;border:1px solid #272727;border-radius:16px;padding:20px}.metric span{display:block;color:#999;font-size:12px;margin-bottom:10px}.metric strong{font-size:27px}.grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.card{background:#151515;border:1px solid #272727;border-radius:16px;padding:20px;margin-bottom:14px}.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.card h3{margin:0;font-size:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.form-grid.three{grid-template-columns:repeat(3,1fr)}label{font-size:12px;color:#aaa;display:grid;gap:7px}input,select{width:100%;background:#0f0f0f;color:#fff;border:1px solid #303030;border-radius:10px;padding:11px 12px}button[type=submit]{background:#f2f2f2;color:#090909;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;align-self:end}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #262626;padding:10px 8px;white-space:nowrap}th{color:#8b8b8b;font-weight:500}.pill{display:inline-block;border:1px solid #333;padding:4px 7px;border-radius:999px;color:#bbb}.money-pos{color:#b7e7c0}.money-neg{color:#ff9d9d}@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid #272727}.sidebar nav{grid-template-columns:repeat(3,1fr)}.admin-link{position:static;display:block;margin-top:20px}main{padding:24px 16px}.metric-grid,.grid.two,.form-grid,.form-grid.three{grid-template-columns:1fr}}</style>
+  <style>.history-block{border-color:#454b32}.history-record{padding:16px 0;border-top:1px solid #333}.history-record:first-child{border-top:0}.history-record h4{font-size:14px;margin:0 0 6px}.history-record p{font-size:13px;line-height:1.6}.history-meta{font-size:11px;color:#dfc68e;display:flex;flex-wrap:wrap;gap:8px}.history-meta span{border:1px solid #554a33;border-radius:5px;padding:3px 6px}.history-detail{white-space:pre-wrap;overflow-wrap:anywhere;color:#aaa;line-height:1.6}.history-record summary{font-size:12px;cursor:pointer;color:#ccc}.history-block td{white-space:normal;min-width:90px;max-width:350px;overflow-wrap:anywhere}.history-block a,.notice a{color:#d1f68a}.metric small{display:block;margin-top:10px;color:#999;font-size:11px;font-weight:400}.current-note{font-size:12px;color:#999;line-height:1.6;margin:0 0 18px}.sidebar{overflow-y:auto}.sidebar nav{margin-bottom:60px}@media(max-width:900px){.sidebar nav{margin-bottom:0}}</style>
 </head>
 <body>
   <div class="shell">
@@ -22,6 +23,7 @@
         <button class="nav" data-section="capital">Capital</button>
         <button class="nav" data-section="deals">Deals</button>
         <button class="nav" data-section="consignment">Consignment</button>
+        <button class="nav" data-section="inventory-history">Inventory &amp; history</button>
         <button class="nav" data-section="expenses">Expenses</button>
         <button class="nav" data-section="referrals">Referral Rules</button>
       </nav>
@@ -40,8 +42,11 @@
       
       <div id="auth-warning" class="notice hidden">Your session has expired. <a href="/admin/">Sign in to continue.</a></div>
       <div id="schema-warning" class="notice hidden"></div>
+      <div id="history-warning" class="notice hidden" role="alert"></div>
+      <p class="current-note">Current balances use the operational records below. Imported history is labeled separately and is not added to today’s money, inventory, or payouts.</p>
 
       <section id="dashboard" class="section active">
+        <article class="card history-block"><h3>Your business history</h3><div id="history-overview"><p class="muted">Loading historical references…</p></div></article>
         <div id="metric-grid" class="metric-grid"></div>
         <div class="grid two">
           <article class="card">
@@ -60,6 +65,7 @@
       </section>
 
       <section id="capital" class="section">
+        <article class="card history-block"><h3>Historical capital &amp; debt references</h3><p class="muted">Earlier reports and estimates; these are not current account balances.</p><div id="history-capital"></div></article>
         <div class="grid two">
           <article class="card">
             <div class="card-head"><h3>Add funding source</h3></div>
@@ -84,6 +90,7 @@
       </section>
 
       <section id="deals" class="section">
+        <article class="card history-block"><h3>Historical deals &amp; ownership</h3><p class="muted">Source reports are preserved without creating new active deals or contributions.</p><div id="history-deals"></div></article>
         <article class="card">
           <div class="card-head"><h3>New inventory deal</h3></div>
           <form id="deal-form" class="form-grid three">
@@ -106,6 +113,7 @@
       </section>
 
       <section id="consignment" class="section">
+        <article class="card history-block"><h3>Historical consignment references</h3><p class="muted">Original reports and estimates; reconcile them before recording a current position or payout.</p><div id="history-consignment"></div></article>
         <div class="grid two">
           <article class="card">
             <div class="card-head"><h3>Add consignment position</h3></div>
@@ -128,6 +136,7 @@
       </section>
 
       <section id="expenses" class="section">
+        <article class="card history-block"><h3>Historical expense references</h3><p class="muted">Kept separately from current expense records to avoid counting the same cost twice.</p><div id="history-expenses"></div><details><summary>Original spreadsheet expense entries</summary><div id="sheet-expense-history"></div></details></article>
         <div class="grid two">
           <article class="card">
             <div class="card-head"><h3>Add business expense</h3></div>
@@ -149,6 +158,7 @@
       </section>
 
       <section id="referrals" class="section">
+        <article class="card history-block"><h3>Historical referral ideas &amp; decisions</h3><p class="muted">Proposals stay labeled as proposals. These references do not activate a checkout promotion.</p><div id="history-referrals"></div></article>
         <div class="grid two">
           <article class="card">
             <div class="card-head"><h3>Referral program rule</h3></div>
@@ -166,23 +176,27 @@
           </article>
         </div>
       </section>
+      <section id="inventory-history" class="section">
+        <article class="card history-block"><h3>Inventory references &amp; original cost notes</h3><p class="muted">Historical quantities, conditions, and costs are reference points; they do not establish current stock.</p><div id="history-inventory"></div></article>
+        <article class="card history-block"><h3>Imported spreadsheet snapshot</h3><p id="sheet-source" class="muted">Loading spreadsheet history…</p><p class="muted">Status and quantity below are exactly as reported in the source snapshot. A row marked as stock is not a confirmation that the item is still in stock today. Unknown dates remain unknown.</p><div id="sheet-notes" class="history-detail"></div><div id="sheet-items"></div></article>
+      </section>
     </main>
   </div>
-  <script>let state=null;
+  <script>let state=null,historyState=null,expired=false,loading=false;
 const $=(s)=>document.querySelector(s);
 const money=(n)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));
 const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function table(headers,rows){if(!rows.length)return '<p class="muted">Nothing here yet.</p>';return '<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th>'+escapeHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
-async function api(path,opts={}){const r=await fetch(path,{headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'Request failed');e.status=r.status;throw e}return j}
+async function api(path,opts={}){if(expired){const e=new Error('Sign in again to continue');e.status=401;throw e}const r=await fetch(path,{credentials:'same-origin',cache:'no-store',...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'Request failed');e.status=r.status;if(r.status===401)markExpired();throw e}return j}
 function membersByName(name){return state.members.find(m=>m.name.toLowerCase()===name.toLowerCase())}
 function render(){
  const t=state.totals;
  $('#metric-grid').innerHTML=[
-  ['Buying capacity',money(t.buyingCapacity)],['Business debt tracked',money(t.businessDebt)],['Inventory cost tied up',money(t.inventoryCost)],
-  ['Pending consignment',money(t.pendingConsignmentPayout)],['Active consignment potential',money(t.activeConsignmentPayout)],['Operating expenses logged',money(t.operatingExpenses)]
- ].map(([l,v])=>'<div class="metric"><span>'+l+'</span><strong>'+v+'</strong></div>').join('');
+  ['Buying capacity',t.buyingCapacity,state.accounts.length],['Business debt tracked',t.businessDebt,state.accounts.length],['Inventory cost tied up',t.inventoryCost,(state.inventory||[]).length],
+  ['Pending consignment',t.pendingConsignmentPayout,state.consignments.length],['Active consignment potential',t.activeConsignmentPayout,state.consignments.length],['Operating expenses logged',t.operatingExpenses,state.expenses.length]
+ ].map(([l,v,count])=>'<div class="metric"><span>'+l+'</span><strong>'+(count?money(v):'—')+'</strong><small>'+(count?'Current operational records':'No current records entered')+'</small></div>').join('');
  $('#capacity-table').innerHTML=table(['Partner','Source','Available','Business balance'],state.accounts.map(a=>'<tr><td>'+escapeHtml(a.business_members?.name||'Business')+'</td><td>'+escapeHtml(a.label)+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td></tr>'));
- $('#consignment-summary').innerHTML='<div class="metric"><span>Pending + active expected</span><strong>'+money(t.pendingConsignmentPayout+t.activeConsignmentPayout)+'</strong></div>';
+ $('#consignment-summary').innerHTML='<div class="metric"><span>Pending + active expected</span><strong>'+(state.consignments.length?money(t.pendingConsignmentPayout+t.activeConsignmentPayout):'—')+'</strong><small>'+(state.consignments.length?'Current recorded positions':'No current consignment positions recorded')+'</small></div>';
  $('#recent-deals').innerHTML=table(['Deal','Type','Cost','Status'],state.deals.slice(0,8).map(d=>'<tr><td>'+escapeHtml(d.deal_code)+' — '+escapeHtml(d.title)+'</td><td>'+escapeHtml(d.ownership_type)+'</td><td>'+money(d.total_cost)+'</td><td><span class="pill">'+escapeHtml(d.status)+'</span></td></tr>'));
  const options=state.members.map(m=>'<option value="'+escapeHtml(m.id)+'">'+escapeHtml(m.name)+'</option>').join('');$('#funding-member').innerHTML=options;
  $('#funding-table').innerHTML=table(['Partner','Label','Type','Available','Debt','APR'],state.accounts.map(a=>'<tr><td>'+escapeHtml(a.business_members?.name||'—')+'</td><td>'+escapeHtml(a.label)+'</td><td>'+escapeHtml(a.account_type)+'</td><td>'+money(a.available_to_business)+'</td><td>'+money(a.business_balance)+'</td><td>'+escapeHtml(a.apr_percent??'—')+'</td></tr>'));
@@ -191,10 +205,37 @@ function render(){
  $('#expenses-table').innerHTML=table(['Date','Description','Category','Amount'],state.expenses.map(e=>'<tr><td>'+escapeHtml(e.expense_date)+'</td><td>'+escapeHtml(e.description)+'</td><td>'+escapeHtml(e.category)+'</td><td>'+money(e.amount)+'</td></tr>'));
  $('#referral-table').innerHTML=table(['Program','Customer off','Referrer','Min profit'],state.referralPrograms.map(r=>'<tr><td>'+escapeHtml(r.name)+'</td><td>'+money(r.customer_discount)+'</td><td>'+money(r.referrer_reward)+'</td><td>'+money(r.min_pre_promo_profit)+'</td></tr>'));
 }
+const referenceText=value=>value===null||value===undefined?'':Array.isArray(value)?value.map(referenceText).filter(Boolean).join('\n'):typeof value==='object'?JSON.stringify(value,null,2):String(value);
+const historyMoney=value=>typeof value==='number'&&Number.isFinite(value)?money(value):'Not recorded';
+function historicalDate(value){if(!value)return 'Not recorded';if(/^\d{4}-\d{2}-\d{2}$/.test(String(value))){const date=new Date(value+'T12:00:00Z');return Number.isNaN(date.valueOf())?String(value):date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})}if(/^\d{4}-\d{2}-\d{2}T/.test(String(value))){const date=new Date(value);return Number.isNaN(date.valueOf())?String(value):date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'America/New_York'})}return String(value)}
+function sourceLink(url,title){try{const parsed=new URL(String(url));if(['http:','https:'].includes(parsed.protocol))return '<a href="'+escapeHtml(parsed.href)+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(title||'Original spreadsheet')+'</a>'}catch(_){}return escapeHtml(title||'Source not established')}
+function confidenceLabel(value){return ({user_reported:'Reported by owner',prior_extraction:'Historical extraction · verify source',derived:'Estimate · derived from source',proposal:'Proposal · not an active balance or rule'})[value]||'Historical reference · unverified'}
+function renderReferences(records){if(!records.length)return '<p class="muted">No historical references in this area.</p>';return [...records].sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)).map(record=>'<article class="history-record"><h4>'+escapeHtml(record.title)+'</h4><div class="history-meta"><span>Historical</span><span>'+escapeHtml(record.reported_on?'Reported '+historicalDate(record.reported_on):'Report date not established')+'</span><span>'+escapeHtml(confidenceLabel(record.confidence))+'</span></div><p>'+escapeHtml(record.value_text)+'</p><details><summary>Details &amp; original source</summary><p class="history-detail">'+escapeHtml(referenceText(record.detail))+'</p><p class="history-detail">Source: '+escapeHtml(referenceText(record.source_ref)||'Not established')+'</p></details></article>').join('')}
+function renderHistory(){
+ const records=historyState.records||[],sheet=historyState.sheet;
+ ['capital','deals','consignment','inventory','expenses','referrals'].forEach(section=>{$('#history-'+section).innerHTML=renderReferences(records.filter(record=>record.section===section))});
+ const source=sheet?sourceLink(sheet.sourceUrl,sheet.sourceTitle)+' · Imported '+escapeHtml(historicalDate(sheet.importedAt))+' · Historical snapshot':'No spreadsheet history has been imported.';
+ $('#history-overview').innerHTML='<p class="muted">'+records.length+' source reference'+(records.length===1?'':'s')+' organized by business area. '+(sheet?'Spreadsheet rows are available in Inventory &amp; history.':'')+'</p><p class="muted">'+source+'</p><p class="muted">Earlier figures stay separate from current balances. <a href="/admin/os/analytics">View spreadsheet period charts →</a></p>';
+ $('#sheet-source').innerHTML=source;
+ $('#sheet-notes').textContent=referenceText(sheet?.notes);
+ $('#sheet-items').innerHTML=sheet?(sheet.items||[]).length?table(['Source period / row','Item','Size','Source status','Snapshot quantity','Unit cost','Sale price','Recorded profit','Purchase date','Sale date','Original cost / row notes'],sheet.items.map(item=>'<tr>'+[referenceText(item.period||'Period not established')+' · Row '+referenceText(item.sourceRow),item.item,item.size,item.status,item.quantity??'Not recorded'].map(value=>'<td>'+escapeHtml(referenceText(value))+'</td>').join('')+'<td>'+historyMoney(item.unitCost)+'</td><td>'+historyMoney(item.salePrice)+'</td><td>'+historyMoney(item.recordedProfit)+'</td><td>'+escapeHtml(historicalDate(item.purchaseDate))+'</td><td>'+escapeHtml(historicalDate(item.saleDate))+'</td><td class="history-detail">'+escapeHtml(referenceText(item.notes))+'</td></tr>')):'<p class="muted">No original item rows available.</p>':'<p class="muted">No spreadsheet inventory snapshot is available.</p>';
+ $('#sheet-expense-history').innerHTML=(sheet?.expenses||[]).length?table(['Source row / description','Amount','Source date','Notes'],sheet.expenses.map(expense=>'<tr><td>'+escapeHtml('Row '+referenceText(expense.sourceRow)+' · '+referenceText(expense.description))+'</td><td>'+historyMoney(expense.amount)+'</td><td>'+escapeHtml(historicalDate(expense.date))+'</td><td class="history-detail">'+escapeHtml(referenceText(expense.notes))+'</td></tr>')):'<p class="muted">No spreadsheet expense references available.</p>';
+}
+function markExpired(){
+ expired=true;state=null;historyState=null;
+ ['#metric-grid','#capacity-table','#consignment-summary','#recent-deals','#funding-member','#funding-table','#deals-table','#consignment-table','#expenses-table','#referral-table','#history-overview','#history-capital','#history-deals','#history-consignment','#history-inventory','#history-expenses','#history-referrals','#sheet-source','#sheet-notes','#sheet-items','#sheet-expense-history'].forEach(selector=>{$(selector).innerHTML='';$(selector).textContent=''});
+ document.querySelectorAll('form').forEach(form=>form.reset());document.querySelectorAll('input,select,button[type="submit"]').forEach(input=>{input.disabled=true});$('#refresh-btn').disabled=true;$('#auth-warning').classList.remove('hidden');$('#schema-warning').classList.add('hidden');$('#history-warning').classList.add('hidden');
+}
+async function loadHistory(){
+ if(expired)return;
+ try{historyState=await api('/api/os/history');renderHistory();$('#history-warning').classList.add('hidden')}
+ catch(e){if(e.status!==401){$('#history-warning').textContent='Business history could not load. '+e.message+(historyState?' The last successfully loaded references are still shown; they may be out of date.':' Import availability has not been established.');$('#history-warning').classList.remove('hidden');if(!historyState){$('#history-overview').textContent='History unavailable · refresh to retry';$('#sheet-source').textContent='History unavailable · refresh to retry'}}}
+}
 async function load(){
- $('#auth-warning').classList.add('hidden');$('#schema-warning').classList.add('hidden');
- try{state=await api('/api/os/dashboard');render()}
- catch(e){if(e.status===401){$('#auth-warning').classList.remove('hidden')}else{$('#schema-warning').textContent='OS database tables are not active yet. Run supabase/os_v1.sql in Supabase, then refresh. '+e.message;$('#schema-warning').classList.remove('hidden')}}
+ if(expired||loading)return;loading=true;$('#refresh-btn').disabled=true;
+ try{state=await api('/api/os/dashboard');render();$('#schema-warning').classList.add('hidden')}
+ catch(e){if(e.status!==401){$('#schema-warning').textContent='Current OS records could not refresh. '+e.message+(state?' The previous records are still shown; they may be out of date.':' No current records have loaded.');$('#schema-warning').classList.remove('hidden')}}
+ finally{if(!expired)await loadHistory();loading=false;$('#refresh-btn').disabled=expired}
 }
 document.querySelectorAll('.nav[data-section]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.section).classList.add('active');$('#section-title').textContent=b.textContent.trim()}));
 $('#refresh-btn').onclick=load;

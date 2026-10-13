@@ -81,8 +81,16 @@ test("item-total mismatches withhold period margin; no revenue has no AOV", () =
   assert.equal(empty.summary.returningCustomerRate, null);
   assert.throws(() => buildAnalytics({ now, days: 0 }), /Choose/);
 });
+
+test("unallocated order adjustments also withhold affected product margins", () => {
+  const report = buildAnalytics({ now, orders: [sale({ total: 90,
+    items: [{ productId: 1, productName: "Adjusted shirt", quantity: 1, lineTotal: 100, unitCost: 60 }] })] });
+  assert.equal(report.summary.grossProfit, null);
+  assert.equal(report.products[0].grossProfit, null);
+  assert.equal(report.products[0].grossMargin, null);
+});
 test("expected consignment and available funding remain separate from revenue", () => {
   const report = buildAnalytics({ now, accounts: [{ available_to_business: 3000, business_balance: 500 }], consignments: [{ payout_status: "pending", expected_payout: 250 }, { payout_status: "active", expected_payout: 100 }, { payout_status: "paid", expected_payout: 900 }] });
   assert.equal(report.summary.revenue, 0);
-  assert.deepEqual(report.finance, { availableCapital: 3000, businessDebt: 500, consignmentPending: 250, consignmentActive: 100 });
+  assert.deepEqual(report.finance, { recordCounts: { accounts: 1, consignments: 3 }, availableCapital: 3000, businessDebt: 500, consignmentPending: 250, consignmentActive: 100 });
 });

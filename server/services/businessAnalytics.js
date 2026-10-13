@@ -18,10 +18,10 @@ const validCost = n => n !== null && n !== undefined && n !== "" && Number.isFin
 function orderAmounts(order) {
   const items = order.items || [];
   const revenue = cents(order.total);
-  const complete = items.length > 0 && items.every(i => validCost(i.unitCost)) &&
-    Math.abs(items.reduce((s, i) => s + cents(i.lineTotal), 0) - revenue) <= 1;
+  const reconciled = Math.abs(items.reduce((s, i) => s + cents(i.lineTotal), 0) - revenue) <= 1;
+  const complete = items.length > 0 && items.every(i => validCost(i.unitCost)) && reconciled;
   const cogs = items.reduce((s, i) => s + (validCost(i.unitCost) ? cents(i.unitCost) * Number(i.quantity) : 0), 0);
-  return { revenue, cogs, complete, profit: complete ? revenue - cogs : null };
+  return { revenue, cogs, complete, reconciled, profit: complete ? revenue - cogs : null };
 }
 function buildAnalytics({ orders = [], products = [], expenses = [], accounts = [], consignments = [], days = 30, now = new Date() }) {
   if (![30, 90, 365].includes(Number(days))) throw new Error("Choose 30, 90, or 365 days");
@@ -79,12 +79,13 @@ function buildAnalytics({ orders = [], products = [], expenses = [], accounts = 
     if (order.day <= end && (!p.lastSaleDate || order.day > p.lastSaleDate)) p.lastSaleDate = order.day;
     if (!inPeriod(order.day, start, end)) continue;
     p.units += Number(item.quantity); p.revenue += cents(item.lineTotal);
+    if (!order.amounts.reconciled) p.unreconciled = true;
     if (validCost(item.unitCost)) p.cost += cents(item.unitCost) * Number(item.quantity);
     else p.missingCostUnits += Number(item.quantity);
   }
   const productRows = [...productMap.values()].map(p => ({ id: p.id, name: p.name, stock: p.stock, units: p.units,
-    revenue: dollars(p.revenue), grossProfit: p.units && !p.missingCostUnits ? dollars(p.revenue - p.cost) : null,
-    grossMargin: p.revenue && !p.missingCostUnits ? round(100 * (p.revenue - p.cost) / p.revenue) : null,
+    revenue: dollars(p.revenue), grossProfit: p.units && !p.missingCostUnits && !p.unreconciled ? dollars(p.revenue - p.cost) : null,
+    grossMargin: p.revenue && !p.missingCostUnits && !p.unreconciled ? round(100 * (p.revenue - p.cost) / p.revenue) : null,
     missingCostUnits: p.missingCostUnits, lastSaleDate: p.lastSaleDate })).sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name));
   const referralMap = new Map();
   for (const o of selected) {
@@ -96,6 +97,7 @@ function buildAnalytics({ orders = [], products = [], expenses = [], accounts = 
   const categories = new Map();
   for (const e of expenses.filter(e => inPeriod(e.expense_date, start, end))) categories.set(e.category || "other", (categories.get(e.category || "other") || 0) + cents(e.amount));
   const finance = {
+    recordCounts: { accounts: accounts.length, consignments: consignments.length },
     availableCapital: dollars(accounts.reduce((s, a) => s + cents(a.available_to_business), 0)),
     businessDebt: dollars(accounts.reduce((s, a) => s + cents(a.business_balance), 0)),
     consignmentPending: dollars(consignments.filter(c => c.payout_status === "pending").reduce((s, c) => s + cents(c.expected_payout), 0)),
@@ -111,7 +113,7 @@ function buildAnalytics({ orders = [], products = [], expenses = [], accounts = 
   const noSales = productRows.filter(p => p.stock > 0 && p.units === 0);
   if (noSales.length) attention.push({ severity: "info", title: "Stock without website sales this period", detail: `${noSales.length} product(s) have stock and no paid website sales in this date range. Offsite sales are not included.` });
   if (finance.consignmentPending > 0) attention.push({ severity: "info", title: "Consignment money pending", detail: "Recorded expected payouts are waiting to be received. They are not cash in the bank." });
-  if (!selected.length) attention.push({ severity: "info", title: "Waiting for website sales", detail: "Paid website orders will appear here automatically. Historical spreadsheet sales have not been imported." });
+  if (!selected.length) attention.push({ severity: "info", title: "Waiting for website sales", detail: "Paid website orders will appear here automatically. Imported spreadsheet history is shown separately with its original reporting periods." });
   return { period: { days, start, end, previousStart, previousEnd, timeZone: TIME_ZONE }, summary, previous,
     growth: { revenuePercent: percentChange(summary.revenue, previous.revenue), ordersPercent: percentChange(summary.orders, previous.orders), aovPercent: percentChange(summary.aov, previous.aov), grossMarginPoints: summary.grossMargin === null || previous.grossMargin === null ? null : round(summary.grossMargin - previous.grossMargin) },
     daily, products: productRows, referrals,
