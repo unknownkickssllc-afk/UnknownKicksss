@@ -195,3 +195,30 @@ The private `/admin/os` workspace groups inventory history, consignment, finance
 The AI helper prepares new expense, purchase-deal, and consignment-entry drafts from owner-entered text. It sends that text and the current Eastern date to AI Gateway; it does not send the business database or give the model database-write tools. Review and complete the form, then explicitly save. A purchase deal does not create storefront products or set partner ownership percentages. Unsupported operations and missing information are returned as questions. Existing records have direct Edit controls.
 
 AI uses the pinned `ai` SDK, Node.js 22 or later (CI uses 24), and Vercel OIDC in deployed functions. `AI_GATEWAY_API_KEY` is an optional server-only alternative for local/non-Vercel execution; `AI_GATEWAY_MODEL` can override the default Gateway model (`openai/gpt-5.4-nano`, verified as eligible for free AI Gateway credit on October 13, 2026). Never expose either authentication credential in a client bundle. The connected Vercel team must have Gateway access and credits; configuration or credit failures leave ordinary manual forms usable. The helper does not buy credits or change account billing. Per-instance request throttling limits bursts but is not a distributed billing limit.
+
+## Private Sales inbox and spreadsheet sync
+
+The `/admin/os/automation` workspace provides an owner-reviewed inbox for Instagram and in-person sales, confirmed offsite-sales reports, and a separate view of the latest Google Sheet snapshot. Connections require the setup below; deploying the code or enabling a connection does not prove that updates are arriving. Check **Last received** and a real test event before relying on either connection.
+
+Apply `supabase/migrations/20261014012406_sales_automation.sql` before deploying this feature. It adds four private integration/inbox/snapshot/sales tables and an atomic sale-confirmation function. RLS and grants restrict access to the server's service role. Run `npm test`; include `server/integrations/google-sheets.gs` in the server deployment because the authenticated installer endpoint reads that template.
+
+### Google Sheets setup
+
+1. In **Sales inbox → Connections → Connect Google Sheets**, create the private setup script.
+2. Open the connected business spreadsheet, choose **Extensions → Apps Script**, add a script file, and paste the generated code.
+3. Run `installUnknownKickssSync` once and approve Google's requested permissions. The installer sends an initial snapshot, then installs a 15-minute trigger and an edit trigger.
+4. Return to Sales inbox and verify **Last received**, the source periods, and the first snapshot totals.
+
+The bound script reads complete snapshots of the supported inventory tabs and Expenses; it never writes sheet cells. Each successful run also requests processing of a pending sales-inbox draft, even when sheet data has not changed. Full snapshots make row sorting safe without hidden row IDs. Known tabs and financial headers are validated, and oversized or invalid updates fail rather than send partial totals. Blank formula tails are checked and excluded; unnamed rows with source data are retained. Failed updates preserve the previously accepted snapshot.
+
+The live-sheet view is separate from the earlier historical import, its original source archive, and owner corrections. Sync never overwrites those records or posts spreadsheet rows as paid sales. Source periods remain combined when combined in the sheet. Pending payouts and missing profit stay qualified; source totals are not verified cash or a complete profit-and-loss statement.
+
+### Instagram setup and sale review
+
+Use the Meta app and Instagram Login connection for the business account `@unknown.kickss`. Complete the account's authorization and any required Meta permission/app-review approval. Enter its app ID, app secret, account ID, and access token only in the private connection form. Account verification alone does not activate delivery: configure the returned callback URL and verification token in Meta, subscribe the account to `messages`, and send a real test DM. No earlier conversation backfill is implied.
+
+Signed message events are deduplicated into the inbox. AI can prepare a possible sale from the message text; attachments still require checking the original conversation. In-person entries use the same review flow. Only an owner explicitly reviewing the details, confirming actual payment receipt, and checking for a duplicate can post an offsite sale. AI drafts and customer claims of payment are not revenue. Blank costs or fees remain unknown and withhold full profit/margin. Confirmed offsite sales stay separate from website orders and spreadsheet totals and do not automatically change storefront stock. This application sends no outbound DMs.
+
+### Connection credentials
+
+Stored integration secrets are encrypted on the server using a key derived from `SESSION_SECRET`; the general dashboard response never includes them. The generated Apps Script and Meta verification token are private setup credentials—keep them out of public files, logs, and commits. Instagram's access token is used for account verification and is not persisted. Rotating `SESSION_SECRET` requires reconnecting both integrations and reinstalling the fresh Google script. Connection setup must replace any credentials that can no longer be decrypted. **Pause updates** disables receipt without deleting previously saved records.

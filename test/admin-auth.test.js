@@ -111,7 +111,7 @@ describe("admin authentication through the deployment entry point", () => {
 
   it("rejects private pages and every OS read/write before touching the database", async () => {
     const beforeCalls = await server.stats();
-    for (const url of ["/admin/os", "/admin/os/", "/admin/os/analytics", "/admin/os/analytics/"]) {
+    for (const url of ["/admin/os", "/admin/os/", "/admin/os/analytics", "/admin/os/analytics/", "/admin/os/automation", "/admin/os/automation/"]) {
       const response = await server.request(url);
       assert.equal(response.status, 302, url);
       assert.equal(response.headers.get("location"), "/admin/", url);
@@ -123,6 +123,13 @@ describe("admin authentication through the deployment entry point", () => {
       ["GET", "/api/admin/products"],
       ["GET", "/api/os/dashboard"],
       ["GET", "/api/os/history"],
+      ["GET", "/api/os/automation"],
+      ["POST", "/api/os/automation/inbox"],
+      ["POST", "/api/os/automation/inbox/00000000-0000-0000-0000-000000000001/confirm"],
+      ["POST", "/api/os/automation/inbox/00000000-0000-0000-0000-000000000001/prepare"],
+      ["POST", "/api/os/automation/inbox/00000000-0000-0000-0000-000000000001/dismiss"],
+      ["POST", "/api/os/automation/sheet-installer"],
+      ["POST", "/api/os/automation/connections/instagram"],
       ["PATCH", "/api/os/history/references/fixture-capacity"],
       ["PATCH", "/api/os/history/items/fixture-item"],
       ["PATCH", "/api/os/history/expenses/fixture-expense"],

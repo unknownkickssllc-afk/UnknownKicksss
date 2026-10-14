@@ -26,6 +26,7 @@ const checkoutRoutes = require("./routes/checkout");
 const adminRoutes = require("./routes/admin");
 const osRoutes = require("./routes/os");
 const analyticsRoutes = require("./routes/analytics");
+const automationRoutes = require("./routes/automation");
 const { requireAdminPage } = require("./middleware/auth");
 
 const app = express();
@@ -82,6 +83,8 @@ app.post(
   }
 );
 
+// Verify Instagram against the original bytes before the ordinary JSON parser.
+app.use('/api/integrations', automationRoutes.incoming);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -124,6 +127,9 @@ app.get(["/admin/os", "/admin/os/"], requireAdminPage, (_req, res) => {
 app.get(["/admin/os/analytics", "/admin/os/analytics/"], requireAdminPage, (_req, res) => {
   res.sendFile(path.join(__dirname, "views", "analytics.html"));
 });
+app.get(["/admin/os/automation", "/admin/os/automation/"], requireAdminPage, (_req, res) => {
+  res.sendFile(path.join(__dirname, "views", "automation.html"));
+});
 app.use("/admin", express.static(adminRoot, { redirect: false }));
 
 // Storefront — locally via Express; on Vercel, public/ is served from the CDN
@@ -139,6 +145,7 @@ app.use("/api", storeRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/os/analytics", analyticsRoutes);
+app.use("/api/os/automation", automationRoutes.admin);
 app.use("/api/os", osRoutes);
 
 app.get("/api/health", async (req, res) => {
