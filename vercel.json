@@ -12,7 +12,7 @@
   "functions": {
     "server.js": {
       "maxDuration": 30,
-      "includeFiles": "server/views/**"
+      "includeFiles": "server/{views,integrations}/**"
     }
   }
 }

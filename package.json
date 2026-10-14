@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
+    "@vercel/functions": "3.10.1",
     "ai": "7.0.139",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.7.0",
