@@ -16,7 +16,7 @@ function createDraftHandler({generate = createOwnerDraft, now = Date.now} = {}) 
     }
     requests.push(time); active = true;
     try { return res.json(await generate(message)); }
-    catch (error) { const safe = publicAssistantError(error); return res.status(safe.status).json({error:safe.error}); }
+    catch (error) { const safe = publicAssistantError(error); return res.status(safe.status).json({error:safe.error,code:safe.code}); }
     finally { active = false; }
   };
 }

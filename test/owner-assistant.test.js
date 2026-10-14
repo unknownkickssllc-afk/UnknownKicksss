@@ -10,7 +10,7 @@ it('uses bounded structured generation with the owner message only and no saving
   const result=await createOwnerDraft('Paid $24 shipping today',{env:{},now:new Date('2026-10-14T02:00:00Z'),generate:async value=>{options=value;return expense();}});
   assert.deepEqual(result,expense());
   assert.equal(options.message,'Paid $24 shipping today');
-  assert.equal(options.model,'openai/gpt-5.4-mini');
+  assert.equal(options.model,'openai/gpt-5.4-nano');
   assert.equal(options.today,'2026-10-13');
   assert.ok(options.signal instanceof AbortSignal);
   assert.deepEqual(Object.keys(options).sort(),['message','model','signal','today']);
@@ -76,4 +76,35 @@ it('rejects unsupported consignment payout states without inventing a received p
   assert.throws(()=>validateDraft(draft),error=>error.code==='INVALID_DRAFT');
   draft.draft.fields.payout_status='pending';assert.equal(validateDraft(draft).draft.fields.payout_status,'pending');
   draft.draft.fields.payout_received_amount=35;assert.throws(()=>validateDraft(draft),error=>error.code==='INVALID_DRAFT');
+});
+
+
+it('recognizes exact Gateway billing verification codes inside SDK-wrapped responses without exposing provider details',()=>{
+  const secret='sk-do-not-expose-provider-key', url='https://private.example/billing?token='+secret;
+  const wire={error:{type:'forbidden',code:'customer_verification_required',message:'Raw message '+secret+' '+url,param:{privateAccount:secret}},generationId:'private-generation'};
+  for(const container of [{responseBody:JSON.stringify(wire)},{data:wire},{response:wire}]){
+    const sdkError={name:'GatewayForbiddenError',type:'forbidden',statusCode:403,message:secret,cause:{name:'AI_APICallError',statusCode:403,url,requestBodyValues:{secret},...container}};
+    const result=publicAssistantError(sdkError);
+    assert.equal(result.status,503);assert.equal(result.code,'AI_BILLING_VERIFICATION_REQUIRED');
+    assert.match(result.error,/billing verification/);
+    assert.doesNotMatch(JSON.stringify(result),/sk-do-not|private\.example|private-generation|privateAccount/);
+    assert.deepEqual(Object.keys(result).sort(),['code','error','status']);
+  }
+});
+it('distinguishes Gateway credits, authentication, model lookup and policy failures using exact structured identifiers',()=>{
+  for(const [type,statusCode,code] of [['insufficient_credits',403,'AI_CREDITS_REQUIRED'],['authentication_error',401,'AI_AUTHENTICATION_REQUIRED'],['model_not_found',404,'AI_MODEL_UNAVAILABLE'],['forbidden',403,'AI_ACCESS_DENIED'],['rate_limit_exceeded',429,'AI_RATE_LIMITED']]){
+    const result=publicAssistantError({name:'GatewayInternalServerError',statusCode:500,cause:{statusCode,data:{error:{type,message:'secret raw response',param:{key:'secret'}}}}});
+    assert.equal(result.code,code);assert.doesNotMatch(JSON.stringify(result),/secret raw|"key"/);
+  }
+  assert.equal(publicAssistantError({name:'GatewayModelNotFoundError',statusCode:404,message:'private model'}).code,'AI_MODEL_UNAVAILABLE');
+});
+it('does not infer verification from free text, malformed JSON, unknown codes, oversized bodies, or circular errors',()=>{
+  const plain=publicAssistantError({statusCode:403,message:'customer_verification_required secret'});
+  assert.equal(plain.code,'AI_ACCESS_DENIED');assert.doesNotMatch(plain.error,/billing verification|secret/);
+  for(const responseBody of ['customer_verification_required','{invalid json','{"error":{"code":"customer_verification_required_secret"}}','{"message":"customer_verification_required"}','{"error":{"code":"customer_verification_required"},"large":"'+'x'.repeat(17000)+'"}']){
+    assert.equal(publicAssistantError({statusCode:403,cause:{responseBody}}).code,'AI_ACCESS_DENIED');
+  }
+  const circular={statusCode:403};circular.cause=circular;
+  assert.equal(publicAssistantError(circular).code,'AI_ACCESS_DENIED');
+  assert.doesNotMatch(publicAssistantError({code:'INVALID_DRAFT',message:'secret raw provider message'}).error,/secret/);
 });
