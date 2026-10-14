@@ -48,7 +48,7 @@ it('does not invent an expense amount when its source cell is blank',()=>{
   assert.equal(result.expenses[0].amount,null);assert.equal(result.totals.expensesIncomplete,true);assert.equal(result.totals.expenses,0);
 });
 
-function scriptHarness({responseCode=200,locked=true,lastRow=4,tabs=5,meaningfulTailRow=null,missingTab=null,badHeader=null,badFinancialHeader=false,allInventoryLastRow=null}={}) {
+function scriptHarness({responseCode=200,locked=true,lastRow=4,tabs=5,meaningfulTailRow=null,missingTab=null,badHeader=null,badFinancialHeader=false,allInventoryLastRow=null,es5Builtins=false}={}) {
   const original=readFileSync(path.join(__dirname,'../server/integrations/google-sheets.gs'),'utf8');
   const script=original.replace('__SHEET_SYNC_ENDPOINT__','https://www.unknownkickss.co/api/integrations/sheets').replace('__PROCESS_ENDPOINT__','https://www.unknownkickss.co/api/integrations/process').replace('__SYNC_TOKEN__','test_only_token_12345678901234567890123456789');
   const data=[header().values,item(),item('',{4:'',8:'',9:-1}),['','','','','','',0,'','',-1,'','']];
@@ -66,9 +66,29 @@ function scriptHarness({responseCode=200,locked=true,lastRow=4,tabs=5,meaningful
   }));
   const spreadsheet={getId:()=>SOURCE_SPREADSHEET_ID,getSpreadsheetTimeZone:()=> 'America/New_York',getName:()=> 'Test spreadsheet',getSheets:()=>sheets};
   const context={Date,SpreadsheetApp:{getActiveSpreadsheet:()=>spreadsheet},Utilities:{formatDate:()=> '2026-05-01'},LockService:{getScriptLock:()=>({tryLock:()=>locked,releaseLock(){released++;}})},UrlFetchApp:{fetch(url,options){calls.push({url,options});return {getResponseCode:()=>responseCode};}},ScriptApp:{getProjectTriggers:()=>[{getHandlerFunction:()=> 'syncUnknownKickss'},{getHandlerFunction:()=> 'unrelated'}],deleteTrigger:trigger=>deleted.push(trigger.getHandlerFunction()),newTrigger(name){const trigger={name};const builder={timeBased(){trigger.kind='time';return builder;},everyMinutes(value){trigger.minutes=value;return builder;},forSpreadsheet(value){assert.equal(value,spreadsheet);return builder;},onEdit(){trigger.kind='edit';return builder;},create(){triggers.push(trigger);return trigger;}};return builder;}}};
-  vm.createContext(context);vm.runInContext(script,context);
+  vm.createContext(context);
+  if (es5Builtins) vm.runInContext("Array.prototype.find = Array.prototype.findIndex = Array.prototype.includes = Array.prototype.flat = Array.prototype.flatMap = undefined; Array.from = Array.of = undefined; String.prototype.includes = String.prototype.startsWith = String.prototype.endsWith = undefined; Object.assign = Object.entries = Object.values = Object.fromEntries = undefined; Number.isFinite = Number.isInteger = Number.isSafeInteger = undefined; Map = Set = Promise = Symbol = undefined;",context);
+  vm.runInContext(script,context);
   return {context,calls,triggers,deleted,ranges,released:()=>released,original};
 }
+it('Apps Script remains compatible with the existing Rhino project without changing its runtime',()=>{
+  const test=scriptHarness({es5Builtins:true});
+  // Node's parser accepts newer grammar, so explicitly guard the unsupported
+  // syntax responsible for the live Rhino parse failure as well as common
+  // newer syntax; the sandbox above removes the newer runtime helpers.
+  const code=test.original.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,'');
+  assert.doesNotMatch(code,/\b(?:const|let|class|async|await)\b|=>|`|\.\.\.|\?\.|\?\?/);
+  test.context.installUnknownKickssSync();
+  assert.equal(test.calls.length,2,'Initial snapshot and queued-work request both succeed with ES5 built-ins');
+  const payload=JSON.parse(test.calls[0].options.payload);
+  assert.equal(payload.sheets.length,5);
+  assert.equal(payload.sheets[0].rows.length,3);
+  assert.equal(typeof payload.capturedAt,'string');
+  assert.deepEqual(test.deleted,['syncUnknownKickss']);
+  assert.equal(test.triggers.length,2);
+  assert.equal(test.triggers[0].minutes,15);
+  assert.equal(test.triggers[1].kind,'edit');
+});
 it('Apps Script posts a read-only complete snapshot then processes queued work under one lock',()=>{
   const test=scriptHarness();test.context.syncUnknownKickss();
   assert.equal(test.calls.length,2);assert.match(test.calls[1].url,/\/process$/);assert.equal(test.calls[1].options.payload,'{}');
