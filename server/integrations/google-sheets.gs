@@ -1,4 +1,5 @@
 /**
+ * @OnlyCurrentDoc
  * Unknown Kickss — read-only spreadsheet snapshots.
  * Paste the private installer from Business OS into this spreadsheet's bound
  * Apps Script project, then run installUnknownKickssSync once and authorize it.
