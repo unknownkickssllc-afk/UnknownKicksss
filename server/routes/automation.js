@@ -10,6 +10,7 @@ const {receiveInstagram,instagramEvents} = require('../services/instagramIngesti
 const {prepareInbox,processPending} = require('../services/saleExtraction');
 const {confirmSale,dismissInbox,summarizeSales,SaleInboxError} = require('../services/salesInbox');
 const {normalizeSnapshot,snapshotHash} = require('../services/sheetSync');
+const {loadWebsiteExport,exportReceipt,readExportReceipt,websiteExportStatus} = require('../services/websiteSheetExport');
 const SHEET_ID = '1b8IlcWscjViVLk_5eN0Wef3REYtwNl0zjy1_-j-koro';
 const REQUIRED_SHEET_IDS = [72108132,1515861308,295653990,1849494495,1402387966];
 const SITE = 'https://www.unknownkickss.co';
@@ -99,6 +100,25 @@ incoming.post('/process',express.json({limit:'1kb'}),asyncRoute(async(req,res)=>
   if (!await sheetAuthorization(req)) return res.sendStatus(401);
   background();res.json({accepted:true});
 }));
+incoming.post('/website-sales',express.json({limit:'1kb'}),asyncRoute(async(req,res)=>{
+  const c=await sheetAuthorization(req);
+  if(!c) return res.sendStatus(401);
+  if(c.external_id!==SHEET_ID || req.body?.spreadsheetId!==SHEET_ID) throw safeError('Choose the connected business spreadsheet.');
+  const report=await loadWebsiteExport(supabase());
+  res.json({...report,receipt:exportReceipt(report)});
+}));
+incoming.post('/website-sales/ack',express.json({limit:'4kb'}),asyncRoute(async(req,res)=>{
+  const c=await sheetAuthorization(req);
+  if(!c) return res.sendStatus(401);
+  const receipt=readExportReceipt(req.body?.receipt);
+  if(c.external_id!==SHEET_ID || req.body?.spreadsheetId!==SHEET_ID || !receipt || !Number.isSafeInteger(req.body.sheetId) || req.body.sheetId<0 || req.body.sheetId>2147483647) throw safeError('The website sales update could not be verified. Retry the spreadsheet sync.');
+  const prior=c.config?.websiteExport;
+  if(prior?.generatedAt && prior.generatedAt>receipt.generatedAt) return res.json({received:true});
+  const websiteExport={generatedAt:receipt.generatedAt,hash:receipt.hash,orderCount:receipt.orderCount,reviewCount:receipt.reviewCount,sheetId:req.body.sheetId,lastSyncedAt:new Date().toISOString()};
+  const {error}=await supabase().from('os_automation_connections').update({config:{...c.config,websiteExport}}).eq('provider','google_sheets');
+  if(error) throw error;
+  res.json({received:true});
+}));
 
 const admin = express.Router();
 admin.use(privateResponse,requireAdmin,sameOrigin);
@@ -106,7 +126,7 @@ admin.get('/',asyncRoute(async(_req,res)=>{
   const sb=supabase();
   const inboxColumns='id,source,account_id,external_id,conversation_id,source_at,source_text,draft,status,error_code,updated_at,created_at';
   const [connections,handled,snapshot] = await Promise.all([
-    sb.from('os_automation_connections').select('provider,external_id,enabled,last_received_at,last_error').order('provider'),
+    sb.from('os_automation_connections').select('provider,external_id,enabled,last_received_at,last_error,config').order('provider'),
     sb.from('os_sale_inbox').select(inboxColumns).in('status',['ignored','posted']).order('created_at',{ascending:false}).order('id').limit(100),
     sb.from('os_sheet_snapshots').select('payload,captured_at,received_at').eq('source_id',SHEET_ID).order('captured_at',{ascending:false}).limit(1).maybeSingle(),
   ]);
@@ -125,8 +145,11 @@ admin.get('/',asyncRoute(async(_req,res)=>{
     if(offset===9500)throw safeError('Sales reporting needs a larger reporting query. Your records are saved.',503);
   }
   const byProvider=new Map((connections.data||[]).map(c=>[c.provider,c]));
-  const statuses=['google_sheets','instagram'].map(provider=>byProvider.get(provider)||{provider,external_id:provider==='instagram'?INSTAGRAM_USER:SHEET_ID,enabled:false,last_received_at:null,last_error:null});
-  res.json({connections:statuses,inbox,handledInboxLimit:100,sales,summary:summarizeSales(sales),sheet:snapshot.data?{...snapshot.data.payload,sourceTitle:snapshot.data.payload.title,sourceUrl:'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit',synced_at:snapshot.data.received_at}:null});
+  const statuses=['google_sheets','instagram'].map(provider=>{
+    const {config,...status}=byProvider.get(provider)||{provider,external_id:provider==='instagram'?INSTAGRAM_USER:SHEET_ID,enabled:false,last_received_at:null,last_error:null};
+    return status;
+  });
+  res.json({connections:statuses,websiteExport:websiteExportStatus(byProvider.get('google_sheets')),inbox,handledInboxLimit:100,sales,summary:summarizeSales(sales),sheet:snapshot.data?{...snapshot.data.payload,sourceTitle:snapshot.data.payload.title,sourceUrl:'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit',synced_at:snapshot.data.received_at}:null});
 }));
 admin.post('/inbox',asyncRoute(async(req,res)=>{
   if (typeof req.body.message!=='string' || !req.body.message.trim() || req.body.message.length>3000 || req.body.channel!=='in_person') throw safeError('Describe one in-person sale in 1–3,000 characters.');
@@ -151,6 +174,15 @@ admin.post('/sheet-installer',asyncRoute(async(_req,res)=>{
   if(error)throw error;
   let script=fs.readFileSync(path.join(__dirname,'../integrations/google-sheets.gs'),'utf8');
   script=script.replaceAll('__SHEET_SYNC_ENDPOINT__',SITE+'/api/integrations/sheets').replaceAll('__PROCESS_ENDPOINT__',SITE+'/api/integrations/process').replaceAll('__SYNC_TOKEN__',secrets.token);
+  res.json({script});
+}));
+admin.post('/website-sales-installer',asyncRoute(async(_req,res)=>{
+  const existing=await connection('google_sheets');
+  const previous=reconnectSecrets(existing);
+  const secrets={token:previous.token||randomBytes(32).toString('base64url')};
+  const {error}=await supabase().from('os_automation_connections').upsert({provider:'google_sheets',external_id:SHEET_ID,enabled:true,config:existing?.config||{},secret_ciphertext:seal(secrets),updated_at:new Date().toISOString()},{onConflict:'provider'});
+  if(error) throw error;
+  const script=fs.readFileSync(path.join(__dirname,'../integrations/google-website-sales.gs'),'utf8').replaceAll('__WEBSITE_EXPORT_ENDPOINT__',SITE+'/api/integrations/website-sales').replaceAll('__WEBSITE_ACK_ENDPOINT__',SITE+'/api/integrations/website-sales/ack').replaceAll('__SYNC_TOKEN__',secrets.token);
   res.json({script});
 }));
 admin.post('/connections/instagram',asyncRoute(async(req,res)=>{

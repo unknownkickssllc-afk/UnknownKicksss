@@ -10,6 +10,7 @@ const fixture = () => ({
   inbox:[{id:'inbox/one',source:'instagram',source_text:'Synthetic buyer paid $100 for a hoodie.',created_at:'2026-10-13T15:00:00Z',updated_at:version,status:'pending',draft:{summary:'Sale draft awaiting review',questions:['What did the item cost?'],fields:{item:'Hoodie',quantity:1,sale_total:100,cost_total:null,fees_total:0,sold_on:'2026-10-13',channel:'instagram',payment_reference:null,notes:'Synthetic note'}}}],
   sales:[{id:'sale1',channel:'in_person',item:'Synthetic sale',quantity:2,sale_total:40,cost_total:null,fees_total:0,sold_on:'2026-10-12'}],
   summary:{sales:1,units:2,revenue:40,profit:null,marginPercent:null,knownProfit:0,missingCostCount:1,missingFeeCount:0,daily:[{date:'2026-10-12',sales:1,revenue:40,profit:null}]},
+  websiteExport:{installed:false,enabled:true,lastSyncedAt:null,orderCount:0,reviewCount:0,sheetId:null,sourceUrl:'https://docs.google.com/spreadsheets/d/fixture/edit',tabName:'Website Sales',intervalMinutes:5},
   sheet:{sourceTitle:'Synthetic sheet',sourceUrl:'https://docs.google.com/spreadsheets/d/fixture',synced_at:'2026-10-13T16:00:00Z',periods:[{label:'Combined period',revenue:999,recordedProfit:100,purchaseCost:899,rowCount:5}],notes:['Original source periods retained']},
 });
 const response = (body, status = 200) => ({ok:status>=200&&status<300,status,json:async()=>body});
@@ -131,8 +132,10 @@ it('clears all private content and connection secrets on 401 and does not resume
   const view=await harness(async()=>expired?response({error:'Unauthorized'},401):response(fixture()));await view.initial;
   view.elements.get('#instagram-app-secret').value='private-app-secret';view.elements.get('#instagram-access-token').value='private-token';view.elements.get('#instagram-verify-token').value='private-verify-token';view.elements.get('#installer-script').value='private-installer';view.elements.get('#quick-message').value='private source';
   expired=true;await view.elements.get('#refresh').listeners.click();
-  for(const selector of ['#inbox-list','#sales-table','#sheet-periods','#connection-status'])assert.equal(view.elements.get(selector).innerHTML,'');
+  for(const selector of ['#inbox-list','#sales-table','#sheet-periods','#website-export-metrics','#website-export-link','#connection-status'])assert.equal(view.elements.get(selector).innerHTML,'');
   for(const selector of ['#instagram-app-secret','#instagram-access-token','#instagram-verify-token','#installer-script','#quick-message'])assert.equal(view.elements.get(selector).value,'');
+  assert.equal(view.elements.get('#website-export-status').textContent,'');assert.equal(view.elements.get('#website-export-description').textContent,'');
+  assert.equal(view.elements.get('#installer-result').classList.contains('hidden'),true);assert.equal(view.elements.get('#website-sales-installer').disabled,true);
   assert.deepEqual(view.redirects,['/admin/']);assert.equal(view.elements.get('#auth-warning').classList.contains('hidden'),false);
   const before=view.requests.length;view.intervals[0].handler();await view.windowListeners.focus();assert.equal(view.requests.length,before);
 });
@@ -233,4 +236,88 @@ it('shows honest empty and incomplete sheet states without fabricating zero sale
   await view.elements.get('#refresh').listeners.click();
   assert.match(view.elements.get('#sheet-metrics').innerHTML,/Recorded profit \(partial\)/);assert.match(view.elements.get('#sheet-metrics').innerHTML,/Not recorded/);
   assert.match(view.elements.get('#sheet-notes').textContent,/missing/);
+});
+
+
+it('keeps website export pending until acknowledged and separate from imported spreadsheet totals',async()=>{
+  const data=fixture();data.websiteExport.orderCount=17;data.websiteExport.reviewCount=3;data.websiteExport.lastSyncedAt=new Date().toISOString();
+  const view=await harness(async()=>response(data));await view.initial;
+  assert.equal(view.elements.get('#website-export-status').textContent,'Setup needed');
+  assert.match(view.elements.get('#website-export-description').textContent,/not being sent/);
+  assert.equal(view.elements.get('#website-export-metrics').innerHTML,'');
+  assert.match(view.elements.get('#website-export-link').innerHTML,/Open business spreadsheet/);
+  data.websiteExport.installed=true;data.websiteExport.sheetId=0;
+  await view.elements.get('#refresh').listeners.click();
+  assert.equal(view.elements.get('#website-export-status').textContent,'Export received');
+  assert.match(view.elements.get('#website-export-description').textContent,/every 5 minutes/);
+  assert.match(view.elements.get('#website-export-metrics').innerHTML,/>17<|>3</);
+  assert.match(view.elements.get('#website-export-metrics').innerHTML,/Excluded from the paid-order count/);
+  assert.match(view.elements.get('#website-export-link').innerHTML,/edit#gid=0/);
+  assert.match(view.elements.get('#sheet-metrics').innerHTML,/\$999\.00/);
+  assert.match(view.elements.get('#sale-metrics').innerHTML,/\$40\.00/);
+  assert.match(view.html,/Do not copy website purchases/);assert.match(view.html,/15-minute backup/);
+});
+
+it('escapes website export labels and rejects unsafe spreadsheet destinations and counts',async()=>{
+  const data=fixture(),attack='"><img src=x onerror="globalThis.compromised=true">';
+  Object.assign(data.websiteExport,{installed:true,lastSyncedAt:new Date().toISOString(),orderCount:attack,reviewCount:-1,sheetId:42,tabName:attack});
+  const view=await harness(async()=>response(data));await view.initial;
+  const link=view.elements.get('#website-export-link').innerHTML;
+  assert.match(link,/&lt;img/);assert.doesNotMatch(link,/<img|onerror="global/);assert.match(link,/#gid=42/);
+  assert.doesNotMatch(view.elements.get('#website-export-metrics').innerHTML,/<img|>-1</);
+  for(const url of ['javascript:alert(1)','https://docs.google.com.attacker.test/spreadsheets/d/f/edit','http://docs.google.com/spreadsheets/d/f/edit','https://attacker.test/']){
+    data.websiteExport.sourceUrl=url;await view.elements.get('#refresh').listeners.click();assert.equal(view.elements.get('#website-export-link').innerHTML,'');
+  }
+  assert.equal(view.context.compromised,undefined);
+});
+
+it('does not invent a successful export for missing timestamps and flags old delivery status',async()=>{
+  const data=fixture();data.websiteExport.installed=true;data.websiteExport.lastSyncedAt='not-a-date';
+  const view=await harness(async()=>response(data));await view.initial;
+  assert.equal(view.elements.get('#website-export-status').textContent,'Waiting for first export');assert.equal(view.elements.get('#website-export-metrics').innerHTML,'');
+  data.websiteExport.lastSyncedAt=new Date(Date.now()-31*60*1000).toISOString();
+  await view.elements.get('#refresh').listeners.click();
+  assert.equal(view.elements.get('#website-export-status').textContent,'Check updates');
+  assert.match(view.elements.get('#website-export-description').textContent,/over 30 minutes/);
+  assert.equal(view.elements.get('#website-export-status').classList.contains('amber'),true);
+});
+
+it('generates a private website-sales installer with distinct steps without claiming it is installed',async()=>{
+  const secret='PRIVATE-WEBSITE-KEY <script>do not run</script>';
+  const view=await harness(async(url)=>response(url.endsWith('/website-sales-installer')?{script:secret}:url.endsWith('/sheet-installer')?{script:'PRIVATE-SOURCE-KEY'}:fixture()));await view.initial;
+  await view.elements.get('#website-sales-installer').listeners.click();
+  const request=view.requests.find(request=>request.url.endsWith('/website-sales-installer'));
+  assert.equal(request.options.method,'POST');assert.equal(request.options.credentials,'same-origin');assert.deepEqual(JSON.parse(request.options.body),{});
+  assert.equal(view.elements.get('#installer-script').value,secret);assert.equal(view.clipboard.length,0);
+  assert.match(view.elements.get('#installer-steps').innerHTML,/UnknownKickssWebsiteSales\.gs/);assert.match(view.elements.get('#installer-steps').innerHTML,/installUnknownKickssWebsiteSales/);
+  assert.match(view.elements.get('#installer-steps').innerHTML,/Keep your existing/);
+  assert.equal(view.elements.get('#website-export-status').textContent,'Setup needed');
+  for(const element of view.elements.values())assert.ok(!element.innerHTML.includes('PRIVATE-WEBSITE-KEY'));
+  await view.elements.get('#copy-installer').listeners.click();assert.deepEqual(view.clipboard,[secret]);
+  await view.elements.get('#sheet-installer').listeners.click();
+  assert.equal(view.elements.get('#installer-script').value,'PRIVATE-SOURCE-KEY');assert.match(view.elements.get('#installer-steps').innerHTML,/installUnknownKickssSync/);assert.doesNotMatch(view.elements.get('#installer-steps').innerHTML,/installUnknownKickssWebsiteSales/);
+  await view.elements.get('#website-sales-installer').listeners.click();view.windowListeners.pagehide();
+  assert.equal(view.elements.get('#installer-script').value,'');assert.equal(view.elements.get('#installer-steps').innerHTML,'');assert.equal(view.elements.get('#installer-result').classList.contains('hidden'),true);
+});
+
+it('clears the website installer and private export status when its setup request requires signing in again',async()=>{
+  let expired=false;
+  const data=fixture();Object.assign(data.websiteExport,{installed:true,lastSyncedAt:new Date().toISOString(),orderCount:9,sheetId:42});
+  const view=await harness(async(url)=>expired?response({error:'Unauthorized'},401):response(url.endsWith('/website-sales-installer')?{script:'PRIVATE-WEBSITE-KEY'}:data));await view.initial;
+  await view.elements.get('#website-sales-installer').listeners.click();assert.equal(view.elements.get('#installer-script').value,'PRIVATE-WEBSITE-KEY');
+  expired=true;await view.elements.get('#website-sales-installer').listeners.click();
+  assert.equal(view.elements.get('#installer-script').value,'');assert.equal(view.elements.get('#website-export-metrics').innerHTML,'');assert.equal(view.elements.get('#website-export-link').innerHTML,'');
+  assert.equal(view.elements.get('#installer-result').classList.contains('hidden'),true);assert.equal(view.elements.get('#website-sales-installer').disabled,true);
+  assert.deepEqual(view.redirects,['/admin/']);
+});
+
+
+it('shows paused website exports without claiming automatic updates or discarding the last received counts',async()=>{
+  const data=fixture();Object.assign(data.websiteExport,{installed:true,enabled:false,lastSyncedAt:new Date().toISOString(),orderCount:8,reviewCount:2});
+  const view=await harness(async()=>response(data));await view.initial;
+  assert.equal(view.elements.get('#website-export-status').textContent,'Updates paused');
+  assert.match(view.elements.get('#website-export-description').textContent,/exports are paused/);
+  assert.doesNotMatch(view.elements.get('#website-export-description').textContent,/checked every 5 minutes/);
+  assert.match(view.elements.get('#website-export-metrics').innerHTML,/>8<|>2</);
+  assert.equal(view.elements.get('#website-export-status').classList.contains('green'),false);
 });

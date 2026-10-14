@@ -34,7 +34,7 @@ describe('automation routes through the real deployment entry point',()=>{
   after(async()=>server?.close());
   it('rejects anonymous admin access before any database call',async()=>{
     const initial=await server.stats();
-    for(const [url,options] of [['/api/os/automation',{}],['/api/os/automation/inbox',json({message:'A sale',channel:'in_person'})],['/api/os/automation/sheet-installer',json({})]]){
+    for(const [url,options] of [['/api/os/automation',{}],['/api/os/automation/inbox',json({message:'A sale',channel:'in_person'})],['/api/os/automation/sheet-installer',json({})],['/api/os/automation/website-sales-installer',json({})]]){
       const response=await server.request(url,options);assert.equal(response.status,401,url);assertPrivate(response);
     }
     assert.equal((await server.stats()).databaseCalls,initial.databaseCalls);
@@ -54,10 +54,10 @@ describe('automation routes through the real deployment entry point',()=>{
   });
   it('rejects unauthenticated Sheets and worker calls before any database mutation or AI work',async()=>{
     const initial=await server.stats();
-    for(const url of ['/api/integrations/sheets','/api/integrations/process'])for(const authorization of [undefined,'Bearer wrong-token']){
+    for(const url of ['/api/integrations/sheets','/api/integrations/process','/api/integrations/website-sales','/api/integrations/website-sales/ack'])for(const authorization of [undefined,'Bearer wrong-token']){
       const response=await server.request(url,json({},authorization?{authorization}:{}));assert.equal(response.status,401,url);assertPrivate(response);
     }
-    const after=await server.stats();assert.equal(after.writes,initial.writes);assert.equal(after.backgroundCalls,initial.backgroundCalls);
+    const after=await server.stats();assert.equal(after.writes,initial.writes);assert.equal(after.backgroundCalls,initial.backgroundCalls);assert.equal(after.tableCalls.orders||0,initial.tableCalls.orders||0);assert.equal(after.tableCalls.order_items||0,initial.tableCalls.order_items||0);assert.equal(after.financialWrites,initial.financialWrites);
   });
   it('ignores correctly signed notifications for another Instagram account without writes or AI work',async()=>{
     const initial=await server.stats();
@@ -71,6 +71,10 @@ describe('automation routes through the real deployment entry point',()=>{
     const initial=await server.stats();
     const cross=await server.request('/api/os/automation/inbox',json({message:'Synthetic sale',channel:'in_person'},{cookie,origin:'https://unrelated.example'}));assert.equal(cross.status,403);assertPrivate(cross);
     const form=await server.request('/api/os/automation/inbox',{method:'POST',headers:{cookie,'content-type':'application/x-www-form-urlencoded'},body:'message=Synthetic&channel=in_person'});assert.equal(form.status,415);assertPrivate(form);
+    for(const url of ['/api/os/automation/website-sales-installer']){
+      const crossInstaller=await server.request(url,json({},{cookie,origin:'https://unrelated.example'}));assert.equal(crossInstaller.status,403);assertPrivate(crossInstaller);
+      const formInstaller=await server.request(url,{method:'POST',headers:{cookie,'content-type':'application/x-www-form-urlencoded'},body:'setup=true'});assert.equal(formInstaller.status,415);assertPrivate(formInstaller);
+    }
     assert.equal((await server.stats()).databaseCalls,initial.databaseCalls);
   });
   it('stores a valid normalized Sheet snapshot, rejects malformed replacements, and deduplicates identical content',async()=>{
@@ -118,6 +122,75 @@ describe('automation routes through the real deployment entry point',()=>{
     assert.ok(report.inbox.some(row=>row.external_id==='fixture-message-1'),'the oldest waiting draft must not disappear');
     assert.ok(report.inbox.some(row=>row.external_id==='pagination-message-100'));
     assert.equal(new Set(report.inbox.map(row=>row.external_id)).size,report.inbox.length);
+  });
+  it('creates the private website-sales installer without marking setup complete or rotating the existing sheet credential',async()=>{
+    const initial=await server.stats();
+    const response=await server.request('/api/os/automation/website-sales-installer',json({},{cookie}));assert.equal(response.status,200);assertPrivate(response);
+    const {script}=await response.json();assert.equal(typeof script,'string');
+    assert.match(script,/installUnknownKickssWebsiteSales/);assert.match(script,/test-only-sheet-token/);
+    assert.doesNotMatch(script,/__WEBSITE_EXPORT_ENDPOINT__|__WEBSITE_ACK_ENDPOINT__|__SYNC_TOKEN__/);
+    const state=await(await server.request('/api/os/automation',{headers:{cookie}})).json();
+    assert.equal(state.websiteExport.installed,false);assert.equal(state.websiteExport.lastSyncedAt,null);
+    assert.equal(state.websiteExport.intervalMinutes,5);assert.equal(state.websiteExport.tabName,'Website Sales');
+    assert.equal((await server.stats()).financialWrites,initial.financialWrites);
+  });
+  it('exports only paid website orders without customer details, payment references, invented costs, or financial writes',async()=>{
+    const initial=await server.stats(),headers={authorization:'Bearer '+sheetToken};
+    const wrong=await server.request('/api/integrations/website-sales',json({spreadsheetId:'another-spreadsheet'},headers));assert.equal(wrong.status,400);assertPrivate(wrong);
+    const afterWrong=await server.stats();assert.equal(afterWrong.tableCalls.orders||0,initial.tableCalls.orders||0);assert.equal(afterWrong.writes,initial.writes);
+    const response=await server.request('/api/integrations/website-sales',json({spreadsheetId:SOURCE_SPREADSHEET_ID},headers));assert.equal(response.status,200);assertPrivate(response);
+    const text=await response.text();assert.doesNotMatch(text,/PRIVATE CUSTOMER|private-customer|private-phone|PRIVATE STREET|PRIVATE ORDER|PRIVATE ITEM|cs_private|pi_private|customer_email|stripe_session_id|cost_total|fees_total/);
+    const report=JSON.parse(text);assert.equal(report.spreadsheetId,SOURCE_SPREADSHEET_ID);assert.equal(report.tabName,'Website Sales');assert.equal(typeof report.receipt,'string');assert.ok(report.receipt.length>30);
+    assert.deepEqual(report.summary,{orderCount:2,reviewCount:4});assert.equal(report.rows.length,6);
+    assert.deepEqual(report.rows.map(row=>row[0]),['website:1','website:3','website:4','website:5','website:6','website:8']);
+    assert.ok(report.rows.every(row=>row[2]==='2026-10-14'&&row[3]==='paid'),'dates use the shop timezone and unpaid/refunded orders are excluded');
+    assert.equal(report.headers[9],'Sales to count (USD)');assert.equal(report.rows.find(row=>row[0]==='website:1')[9],110);
+    assert.equal(report.rows.find(row=>row[0]==='website:8')[9],55);
+    for(const id of [3,4,5,6])assert.equal(report.rows.find(row=>row[0]==='website:'+id)[9],'','flagged orders must not inflate countable sales');
+    assert.match(report.rows.find(row=>row[0]==='website:3')[10],/Cancelled/);
+    assert.match(report.rows.find(row=>row[0]==='website:4')[10],/multiple orders/);
+    assert.match(report.rows.find(row=>row[0]==='website:6')[10],/No website payment reference/);
+    const retry=await server.request('/api/integrations/website-sales',json({spreadsheetId:SOURCE_SPREADSHEET_ID},headers));assert.equal(retry.status,200);
+    const repeated=await retry.json();assert.equal(repeated.hash,report.hash);assert.deepEqual(repeated.rows,report.rows);assert.deepEqual(repeated.summary,report.summary);
+    const after=await server.stats();assert.equal(after.writes,initial.writes);assert.equal(after.financialWrites,initial.financialWrites);assert.equal(after.orderCount,initial.orderCount);assert.equal(after.itemCount,initial.itemCount);assert.equal(after.offsiteSales,initial.offsiteSales);
+    const state=await(await server.request('/api/os/automation',{headers:{cookie}})).json();assert.equal(state.websiteExport.installed,false,'fetching export data does not prove it reached Google Sheets');
+  });
+  it('rejects malformed, tampered, and wrong-spreadsheet acknowledgments without writing status',async()=>{
+    const headers={authorization:'Bearer '+sheetToken};
+    const report=await(await server.request('/api/integrations/website-sales',json({spreadsheetId:SOURCE_SPREADSHEET_ID},headers))).json();
+    const valid={spreadsheetId:SOURCE_SPREADSHEET_ID,receipt:report.receipt,sheetId:42};
+    const initial=await server.stats();
+    for(const body of [{},{...valid,receipt:null},{...valid,receipt:'invalid'},{...valid,receipt:'tampered'+report.receipt},{...valid,spreadsheetId:'another-spreadsheet'},{...valid,sheetId:null},{...valid,sheetId:-1},{...valid,sheetId:2147483648},{...valid,sheetId:'42'},{...valid,sheetId:4.2}]){
+      const response=await server.request('/api/integrations/website-sales/ack',json(body,headers));assert.equal(response.status,400);assertPrivate(response);
+      const text=await response.text();assert.doesNotMatch(text,/test-only|secret_ciphertext|Bearer|cs_private/);assert.ok(!text.includes(report.receipt));
+    }
+    const after=await server.stats();assert.equal(after.writes,initial.writes);assert.equal(after.financialWrites,initial.financialWrites);
+    const state=await(await server.request('/api/os/automation',{headers:{cookie}})).json();assert.equal(state.websiteExport.installed,false);
+  });
+  it('acknowledges a completed sheet export, reports only safe metadata, and retries without duplicating financial data',async()=>{
+    const headers={authorization:'Bearer '+sheetToken};
+    const report=await(await server.request('/api/integrations/website-sales',json({spreadsheetId:SOURCE_SPREADSHEET_ID},headers))).json();
+    const initial=await server.stats(),ack={spreadsheetId:SOURCE_SPREADSHEET_ID,receipt:report.receipt,sheetId:0};
+    for(let attempt=0;attempt<2;attempt++){
+      const response=await server.request('/api/integrations/website-sales/ack',json(ack,headers));assert.equal(response.status,200);assertPrivate(response);assert.deepEqual(await response.json(),{received:true});
+    }
+    const response=await server.request('/api/os/automation',{headers:{cookie}});assert.equal(response.status,200);assertPrivate(response);
+    const text=await response.text();assert.doesNotMatch(text,/secret_ciphertext|app_secret|verify_token|test-only|cs_private|"receipt"|"config"|"generatedAt"/);assert.ok(!text.includes(report.receipt));assert.ok(!text.includes(report.hash));
+    const state=JSON.parse(text);assert.equal(state.websiteExport.installed,true);assert.equal(state.websiteExport.enabled,true);assert.equal(state.websiteExport.sheetId,0);assert.equal(state.websiteExport.orderCount,2);assert.equal(state.websiteExport.reviewCount,4);assert.ok(Number.isFinite(Date.parse(state.websiteExport.lastSyncedAt)));
+    assert.equal(state.websiteExport.sourceUrl,'https://docs.google.com/spreadsheets/d/'+SOURCE_SPREADSHEET_ID+'/edit');
+    assert.equal(state.summary.revenue,0);assert.equal(state.sheet.totals.revenue,220,'website export must not rewrite historical or manually entered sheet figures');
+    const after=await server.stats();assert.equal(after.financialWrites,initial.financialWrites);assert.equal(after.orderCount,initial.orderCount);assert.equal(after.itemCount,initial.itemCount);assert.equal(after.offsiteSales,initial.offsiteSales);
+  });
+  it('blocks both website export endpoints when Sheets updates are paused and preserves the last successful status',async()=>{
+    const before=await(await server.request('/api/os/automation',{headers:{cookie}})).json();
+    const pause=await server.request('/api/os/automation/connections/google_sheets/pause',json({},{cookie}));assert.equal(pause.status,200);
+    const initial=await server.stats();
+    for(const url of ['/api/integrations/website-sales','/api/integrations/website-sales/ack']){
+      const response=await server.request(url,json({spreadsheetId:SOURCE_SPREADSHEET_ID},{authorization:'Bearer '+sheetToken}));assert.equal(response.status,401);assertPrivate(response);
+    }
+    const after=await server.stats();assert.equal(after.writes,initial.writes);assert.equal(after.financialWrites,initial.financialWrites);assert.equal(after.tableCalls.orders,initial.tableCalls.orders);assert.equal(after.tableCalls.order_items,initial.tableCalls.order_items);
+    const current=await(await server.request('/api/os/automation',{headers:{cookie}})).json();
+    assert.equal(current.websiteExport.installed,true);assert.equal(current.websiteExport.enabled,false);assert.equal(current.websiteExport.lastSyncedAt,before.websiteExport.lastSyncedAt);assert.equal(current.websiteExport.orderCount,before.websiteExport.orderCount);
   });
   it('can reconnect the Sheet installer after encryption-key rotation without reusing the old credential',async()=>{
     await server.staleCiphertext();
