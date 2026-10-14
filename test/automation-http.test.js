@@ -123,7 +123,7 @@ describe('automation routes through the real deployment entry point',()=>{
     await server.staleCiphertext();
     const response=await server.request('/api/os/automation/sheet-installer',json({},{cookie}));assert.equal(response.status,200);assertPrivate(response);
     const {script}=await response.json();assert.equal(typeof script,'string');assert.doesNotMatch(script,/__SYNC_TOKEN__|test-only-previous-sheet-token|test-only-sheet-token/);
-    const token=script.match(/const UK_SYNC_TOKEN = '([^']+)'/)?.[1];assert.ok(token&&token.length>=32);
+    const token=script.match(/(?:var|const) UK_SYNC_TOKEN = '([^']+)'/)?.[1];assert.ok(token&&token.length>=32);
     const accepted=await server.request('/api/integrations/sheets',json(snapshot(),{authorization:'Bearer '+token}));assert.equal(accepted.status,200);
     const old=await server.request('/api/integrations/process',json({},{authorization:'Bearer '+sheetToken}));assert.equal(old.status,401);
     const listed=await server.request('/api/os/automation',{headers:{cookie}});const text=await listed.text();assert.ok(!text.includes(token));assert.doesNotMatch(text,/secret_ciphertext|test-only-previous-sheet-token/);
